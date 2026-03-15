@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import authService from './../api/authService';
 import './../style/auth.css';
 
 const MailIcon = () => (
@@ -44,6 +45,7 @@ export const Auth = () => {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
     const [loginData, setLoginData] = useState({
         email: '',
@@ -60,7 +62,7 @@ export const Auth = () => {
         agreeTerms: false
     });
 
-    const handleLoginSubmit = (e) => {
+    const handleLoginSubmit = async (e) => {
         e.preventDefault();
         setError('');
         setSuccess('');
@@ -70,18 +72,44 @@ export const Auth = () => {
             return;
         }
 
-        console.log('Login data:', loginData);
-        setSuccess('Вход выполнен успешно!');
+        setIsLoading(true);
 
+        try {
+            const result = await authService.login({
+                email: loginData.email,
+                password: loginData.password,
+                remember: loginData.remember
+            });
+
+            if (result.success) {
+                setSuccess('Вход выполнен успешно!');
+
+                setTimeout(() => {
+                    window.location.href = '/dashboard';
+                }, 1000);
+            } else {
+                setError(result.error || 'Ошибка авторизации');
+            }
+        } catch (err) {
+            console.error('Login error:', err);
+
+            if (err.response?.data?.details) {
+                setError(err.response.data.details.map(d => d.message).join(', '));
+            } else {
+                setError(err.response?.data?.error || 'Ошибка соединения с сервером');
+            }
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    const handleRegisterSubmit = (e) => {
+    const handleRegisterSubmit = async (e) => {
         e.preventDefault();
         setError('');
         setSuccess('');
 
-        if (!registerData.firstName || !registerData.lastName || !registerData.email || !registerData.password || !registerData.confirmPassword) {
-            setError('Пожалуйста, заполните все поля');
+        if (!registerData.firstName || !registerData.lastName || !registerData.email || !registerData.password) {
+            setError('Пожалуйста, заполните все обязательные поля');
             return;
         }
 
@@ -100,13 +128,59 @@ export const Auth = () => {
             return;
         }
 
-        console.log('Register data:', registerData);
-        setSuccess('Регистрация прошла успешно!');
+        setIsLoading(true);
 
-        setTimeout(() => {
-            setActiveTab('login');
-            setSuccess('');
-        }, 2000);
+        try {
+            const result = await authService.register({
+                firstName: registerData.firstName,
+                lastName: registerData.lastName,
+                email: registerData.email,
+                password: registerData.password,
+                confirmPassword: registerData.confirmPassword,
+                agreeTerms: registerData.agreeTerms
+            });
+
+            if (result.success) {
+                setSuccess('Регистрация прошла успешно!');
+
+                setTimeout(() => {
+                    window.location.href = '/dashboard';
+                }, 2000);
+            } else {
+                if (result.details && Array.isArray(result.details)) {
+                    setError(result.details.map(d => d.message).join('; '));
+                } else {
+                    setError(result.error || 'Ошибка регистрации');
+                }
+            }
+        } catch (err) {
+            console.error('Register error:', err);
+
+            if (err.response) {
+                console.log('Status:', err.response.status);
+                console.log('Data:', err.response.data);
+                console.log('Headers:', err.response.headers);
+
+                if (err.response.data.details && Array.isArray(err.response.data.details)) {
+                    const messages = err.response.data.details.map(d => d.message).join('; ');
+                    setError(messages);
+                } else {
+                    setError(err.response.data.error || 'Ошибка регистрации');
+                }
+            } else if (err.request) {
+                setError('Нет ответа от сервера. Проверьте, запущен ли бэкенд.');
+            } else {
+                setError(err.message || 'Произошла ошибка');
+            }
+        }
+    };
+
+    const handleTabChange = (tab) => {
+        setActiveTab(tab);
+        setError('');
+        setSuccess('');
+        setShowPassword(false);
+        setShowConfirmPassword(false);
     };
 
     return (
@@ -120,26 +194,28 @@ export const Auth = () => {
                 <div className="auth-tabs">
                     <button
                         className={`auth-tab ${activeTab === 'login' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('login')}
+                        onClick={() => handleTabChange('login')}
+                        disabled={isLoading}
                     >
                         Вход
                     </button>
                     <button
                         className={`auth-tab ${activeTab === 'register' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('register')}
+                        onClick={() => handleTabChange('register')}
+                        disabled={isLoading}
                     >
                         Регистрация
                     </button>
                 </div>
 
                 {error && (
-                    <div className="error-message">
+                    <div className="error-message" role="alert">
                         <span>⚠️</span> {error}
                     </div>
                 )}
 
                 {success && (
-                    <div className="success-message">
+                    <div className="success-message" role="status">
                         <span>✓</span> {success}
                     </div>
                 )}
@@ -155,6 +231,9 @@ export const Auth = () => {
                                     placeholder="ivanov@corp.ru"
                                     value={loginData.email}
                                     onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
+                                    disabled={isLoading}
+                                    required
+                                    autoComplete="email"
                                 />
                             </div>
                         </div>
@@ -168,11 +247,16 @@ export const Auth = () => {
                                     placeholder="••••••••"
                                     value={loginData.password}
                                     onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                                    disabled={isLoading}
+                                    required
+                                    autoComplete="current-password"
                                 />
                                 <button
                                     type="button"
                                     className="password-toggle"
                                     onClick={() => setShowPassword(!showPassword)}
+                                    disabled={isLoading}
+                                    aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
                                 >
                                     <EyeIcon show={showPassword} />
                                 </button>
@@ -185,21 +269,28 @@ export const Auth = () => {
                                     type="checkbox"
                                     checked={loginData.remember}
                                     onChange={(e) => setLoginData({ ...loginData, remember: e.target.checked })}
+                                    disabled={isLoading}
                                 />
                                 <span>Запомнить меня</span>
                             </label>
-                            <a href="#" className="forgot-link">Забыли пароль?</a>
+                            <a href="/forgot-password" className="forgot-link">Забыли пароль?</a>
                         </div>
 
-                        <button type="submit" className="auth-button">
-                            Войти в систему
+                        <button
+                            type="submit"
+                            className="auth-button"
+                            disabled={isLoading}
+                        >
+                            {isLoading ? (
+                                <span className="spinner">Загрузка...</span>
+                            ) : 'Войти в систему'}
                         </button>
                     </form>
                 ) : (
                     <form className="auth-form" onSubmit={handleRegisterSubmit}>
                         <div className="name-row">
                             <div className="form-group">
-                                <label>Имя</label>
+                                <label>Имя *</label>
                                 <div className="input-wrapper">
                                     <span className="input-icon"><UserIcon /></span>
                                     <input
@@ -207,12 +298,15 @@ export const Auth = () => {
                                         placeholder="Иван"
                                         value={registerData.firstName}
                                         onChange={(e) => setRegisterData({ ...registerData, firstName: e.target.value })}
+                                        disabled={isLoading}
+                                        required
+                                        title="Только буквы, пробелы и дефис"
                                     />
                                 </div>
                             </div>
 
                             <div className="form-group">
-                                <label>Фамилия</label>
+                                <label>Фамилия *</label>
                                 <div className="input-wrapper">
                                     <span className="input-icon"><UserIcon /></span>
                                     <input
@@ -220,13 +314,16 @@ export const Auth = () => {
                                         placeholder="Иванов"
                                         value={registerData.lastName}
                                         onChange={(e) => setRegisterData({ ...registerData, lastName: e.target.value })}
+                                        disabled={isLoading}
+                                        required
+                                        title="Только буквы, пробелы и дефис"
                                     />
                                 </div>
                             </div>
                         </div>
 
                         <div className="form-group">
-                            <label>Email</label>
+                            <label>Email *</label>
                             <div className="input-wrapper">
                                 <span className="input-icon"><MailIcon /></span>
                                 <input
@@ -234,12 +331,15 @@ export const Auth = () => {
                                     placeholder="ivanov@corp.ru"
                                     value={registerData.email}
                                     onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
+                                    disabled={isLoading}
+                                    required
+                                    autoComplete="email"
                                 />
                             </div>
                         </div>
 
                         <div className="form-group">
-                            <label>Пароль</label>
+                            <label>Пароль *</label>
                             <div className="input-wrapper">
                                 <span className="input-icon"><LockIcon /></span>
                                 <input
@@ -247,11 +347,17 @@ export const Auth = () => {
                                     placeholder="Минимум 6 символов"
                                     value={registerData.password}
                                     onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
+                                    disabled={isLoading}
+                                    required
+                                    minLength={6}
+                                    autoComplete="new-password"
                                 />
                                 <button
                                     type="button"
                                     className="password-toggle"
                                     onClick={() => setShowPassword(!showPassword)}
+                                    disabled={isLoading}
+                                    aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
                                 >
                                     <EyeIcon show={showPassword} />
                                 </button>
@@ -259,7 +365,7 @@ export const Auth = () => {
                         </div>
 
                         <div className="form-group">
-                            <label>Подтверждение пароля</label>
+                            <label>Подтверждение пароля *</label>
                             <div className="input-wrapper">
                                 <span className="input-icon"><LockIcon /></span>
                                 <input
@@ -267,26 +373,47 @@ export const Auth = () => {
                                     placeholder="Введите пароль еще раз"
                                     value={registerData.confirmPassword}
                                     onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
+                                    disabled={isLoading}
+                                    required
+                                    autoComplete="new-password"
                                 />
                                 <button
                                     type="button"
                                     className="password-toggle"
                                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                    disabled={isLoading}
+                                    aria-label={showConfirmPassword ? "Скрыть пароль" : "Показать пароль"}
                                 >
                                     <EyeIcon show={showConfirmPassword} />
                                 </button>
                             </div>
                         </div>
 
-                        <button type="submit" className="auth-button">
-                            Зарегистрироваться
+                        <label className="checkbox-wrapper terms-checkbox">
+                            <input
+                                type="checkbox"
+                                checked={registerData.agreeTerms}
+                                onChange={(e) => setRegisterData({ ...registerData, agreeTerms: e.target.checked })}
+                                disabled={isLoading}
+                                required
+                            />
+                            <span>
+                                Я соглашаюсь с <a href="/terms" target="_blank" rel="noopener noreferrer">условиями использования</a> и <a href="/privacy" target="_blank" rel="noopener noreferrer">политикой конфиденциальности</a>
+                            </span>
+                        </label>
+
+                        <button
+                            type="submit"
+                            className="auth-button"
+                            disabled={isLoading}
+                        >
+                            {isLoading ? (
+                                <span className="spinner">Регистрация...</span>
+                            ) : 'Зарегистрироваться'}
                         </button>
-                        <p className="terms">
-                            Регистрируясь, вы соглашаетесь с <a href="#">условиями использования</a> и <a href="#">политикой конфиденциальности</a>
-                        </p>
                     </form>
                 )}
             </div>
         </div>
     );
-}
+};

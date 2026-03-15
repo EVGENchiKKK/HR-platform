@@ -142,6 +142,7 @@ body {
   font-family: 'Inter', sans-serif;
   transition: all 0.2s;
   background: #f9fafb;
+  color: black;
 }
 
 .input-wrapper input:focus {

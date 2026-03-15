@@ -1,13 +1,12 @@
-import { Auth } from '../pages/Auth'
-import './../style/App.css'
+import { Auth } from './../pages/Auth';
+import './../style/App.css';
 
 function App() {
-
   return (
     <>
       <Auth />
     </>
-  )
+  );
 }
 
-export default App
+export default App;
