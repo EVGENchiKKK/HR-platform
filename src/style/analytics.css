@@ -1,0 +1,346 @@
+/* ===== Page Container ===== */
+.analytics-page {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ===== View Toggle ===== */
+.view-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.toggle-btn {
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  background: transparent;
+  color: #4b5563;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggle-btn:hover {
+  background: #f9fafb;
+}
+
+.toggle-btn-active {
+  background: #6366f1;
+  color: white;
+  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.3);
+}
+
+/* ===== Chart Cards ===== */
+.chart-card-full {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #f3f4f6;
+  margin-bottom: 24px;
+}
+
+.chart-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 4px 0;
+}
+
+.chart-subtitle {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0 0 20px 0;
+}
+
+/* ===== Department Stats Grid ===== */
+.dept-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.dept-stat-card {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #f3f4f6;
+  text-align: center;
+}
+
+.dept-stat-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 8px auto;
+}
+
+.dept-stat-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.dept-stat-kpi {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.dept-stat-name {
+  font-size: 11px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.dept-stat-count {
+  font-size: 10px;
+  color: #9ca3af;
+  margin-top: 4px;
+}
+
+/* ===== Employees View ===== */
+.employees-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.avg-kpi-badge {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 14px;
+  color: #4b5563;
+}
+
+.avg-kpi-value {
+  font-weight: 600;
+  color: #6366f1;
+}
+
+/* ===== Employees Analytics Grid ===== */
+.employees-analytics-grid {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 24px;
+}
+
+/* ===== Employee List Card ===== */
+.employee-list-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #f3f4f6;
+  overflow: hidden;
+}
+
+.card-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  background: #f9fafb;
+}
+
+.card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.employee-scroll-list {
+  max-height: 384px;
+  overflow-y: auto;
+}
+
+.employee-list-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #f9fafb;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.2s;
+}
+
+.employee-list-item:hover {
+  background: #eef2ff;
+}
+
+.employee-list-item-active {
+  background: #eef2ff;
+}
+
+.employee-avatar-list {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e0e7ff;
+  color: #4f46e5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.employee-info-list {
+  flex: 1;
+  min-width: 0;
+}
+
+.employee-name-list {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1f2937;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.employee-position-list {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ===== KPI Badge ===== */
+.kpi-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.kpi-badge-up { color: #059669; }
+.kpi-badge-stable { color: #6b7280; }
+.kpi-badge-down { color: #dc2626; }
+
+/* ===== Employee Detail Section ===== */
+.employee-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.employee-detail-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #f3f4f6;
+}
+
+.employee-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.employee-avatar-large {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #818cf8 0%, #8b5cf6 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.employee-detail-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 4px 0;
+}
+
+.employee-detail-position {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0 0 8px 0;
+}
+
+/* ===== Employee Metrics Grid ===== */
+.employee-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.metric-card {
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+}
+
+.metric-indigo { background: #e0e7ff; }
+.metric-emerald { background: #ecfdf5; }
+.metric-violet { background: #ede9fe; }
+
+.metric-value {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.metric-value-indigo { color: #6366f1; }
+.metric-value-emerald { color: #059669; }
+.metric-value-violet { color: #8b5cf6; }
+
+.metric-label {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* ===== Radar Chart ===== */
+.radar-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  margin: 0 0 16px 0;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 1024px) {
+  .employees-analytics-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .analytics-page {
+    padding: 16px;
+  }
+  
+  .dept-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .employee-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+}

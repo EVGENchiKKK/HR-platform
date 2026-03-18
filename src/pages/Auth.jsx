@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from './../hooks/useAuth';
 import authService from './../api/authService';
 import './../style/auth.css';
 
@@ -40,6 +42,8 @@ const EyeIcon = ({ show }) => (
 );
 
 export const Auth = () => {
+    const navigate = useNavigate();
+    const { login } = useAuth();
     const [activeTab, setActiveTab] = useState('login');
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -75,7 +79,7 @@ export const Auth = () => {
         setIsLoading(true);
 
         try {
-            const result = await authService.login({
+            const result = await login({
                 email: loginData.email,
                 password: loginData.password,
                 remember: loginData.remember
@@ -85,7 +89,7 @@ export const Auth = () => {
                 setSuccess('Вход выполнен успешно!');
 
                 setTimeout(() => {
-                    window.location.href = '/dashboard';
+                    navigate('/dashboard', { replace: true });
                 }, 1000);
             } else {
                 setError(result.error || 'Ошибка авторизации');

@@ -1,4 +1,5 @@
 import axiosInstance from './axios';
+import Cookies from 'js-cookie';
 
 const AUTH_ENDPOINTS = {
   REGISTER: '/auth/register',

@@ -11,16 +11,18 @@ export const useAuth = () => {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const cachedUser = authService.getUserFromCookie();
-        
-        if (cachedUser) {
-          const response = await authService.getCurrentUser();
+        if (authService.isAuthenticated()) {
+          const cachedUser = authService.getUserFromCookie();
           
-          if (response.success) {
-            setUser(response.data);
-            setToken(Cookies.get('auth_token'));
-          } else {
-            authService.clearAuthData();
+          if (cachedUser) {
+            const response = await authService.getCurrentUser();
+            
+            if (response.success) {
+              setUser(response.data);
+              setToken(Cookies.get('auth_token'));
+            } else {
+              authService.clearAuthData();
+            }
           }
         }
       } catch (err) {
@@ -62,35 +64,6 @@ export const useAuth = () => {
     }
   }, []);
 
-  const register = useCallback(async (userData) => {
-    setError(null);
-    setLoading(true);
-    
-    try {
-      const response = await authService.register(userData);
-      
-      if (response.success) {
-        const { token, user } = response.data;
-        
-        authService.saveAuthData(token, user, false);
-        setToken(token);
-        setUser(user);
-        
-        return { success: true, user };
-      } else {
-        setError(response.error);
-        return { success: false, error: response.error, details: response.details };
-      }
-    } catch (err) {
-      const errorMessage = err.response?.data?.error || 'Ошибка соединения с сервером';
-      const details = err.response?.data?.details;
-      setError(errorMessage);
-      return { success: false, error: errorMessage, details };
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   const logout = useCallback(async () => {
     try {
       await authService.logout();
@@ -103,21 +76,6 @@ export const useAuth = () => {
     }
   }, []);
 
-  const refreshUser = useCallback(async () => {
-    try {
-      const response = await authService.getCurrentUser();
-      
-      if (response.success) {
-        setUser(response.data);
-        return { success: true, user: response.data };
-      }
-      return { success: false };
-    } catch (err) {
-      console.error('Refresh user error:', err);
-      return { success: false };
-    }
-  }, []);
-
   return {
     user,
     token,
@@ -125,9 +83,7 @@ export const useAuth = () => {
     error,
     isAuthenticated: !!user,
     login,
-    register,
     logout,
-    refreshUser,
     clearError: () => setError(null),
   };
 };
