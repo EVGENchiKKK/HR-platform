@@ -98,7 +98,7 @@ export function Layout() {
                     <span className="logo-text">HR</span>
                     {!collapsed && (
                         <div className="logo-subtitle">
-                            <span className="logo-highlight">Connect</span>
+                            <span className="logo-highlight">Helper</span>
                             <span className="logo-description">Платформа управления</span>
                         </div>
                     )}

@@ -5,6 +5,11 @@ import { Dashboard } from '../pages/Dashboard';
 import { Employees } from '../pages/Employees';
 import { Analytics } from '../pages/Analytics';
 import { Departments } from '../pages/Departments';
+import { Tasks } from '../pages/Tasks';
+import { Surveys } from '../pages/Surveys';
+import { Appeals } from '../pages/Appeals';
+import { Training } from '../pages/Training';
+import { Forum } from '../pages/Forum';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 import { Layout } from '../components/Layout';
 import './../style/App.css';
@@ -41,6 +46,11 @@ export const App = () => {
             <Route path="employees" element={<Employees />} />
             <Route path="analytics" element={<Analytics />} />
             <Route path="departments" element={<Departments />} />
+            <Route path="tasks" element={<Tasks />} />
+            <Route path="surveys" element={<Surveys />} />
+            <Route path="appeals" element={<Appeals />} />
+            <Route path="training" element={<Training />} />
+            <Route path="forum" element={<Forum />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

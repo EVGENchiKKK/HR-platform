@@ -219,10 +219,6 @@
   transition: width 0.3s;
 }
 
-.kpi-high { background: #10b981; }
-.kpi-medium { background: #f59e0b; }
-.kpi-low { background: #ef4444; }
-
 .kpi-value {
   font-size: 12px;
   font-weight: 600;

@@ -3,7 +3,7 @@ import { useOutletContext } from "react-router-dom";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, BarChart, Bar, RadarChart, Radar, PolarGrid,
-  PolarAngleAxis
+  PolarAngleAxis, Cell
 } from "recharts";
 import { employees, departments, kpiTrend } from "../data/mockData";
 import { TrendingUp, TrendingDown, Remove } from "@mui/icons-material";
@@ -30,9 +30,6 @@ export const Analytics = () => {
   const [selectedEmp, setSelectedEmp] = useState(employees[0]);
   const [selectedDept, setSelectedDept] = useState("Все");
 
-  const isHR = user?.role === "hr" || user?.R_name === "hr";
-  const isManager = user?.role === "manager" || user?.R_name === "manager";
-  const isAdmin = user?.role === "admin" || user?.R_name === "admin";
   const isEmployee = user?.role === "employee" || user?.R_name === "employee";
 
   const userDepartment = user?.department || user?.Department_ID || null;

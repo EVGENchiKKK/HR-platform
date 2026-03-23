@@ -23,36 +23,53 @@ export const Employees = () => {
   const [statusFilter, setStatusFilter] = useState("Все");
   const [showAddModal, setShowAddModal] = useState(false);
   const [employees, setEmployees] = useState(initialEmployees);
-  const [newEmp, setNewEmp] = useState({ name: "", department: "IT", position: "", email: "", phone: "", status: "active" });
+  const [newEmp, setNewEmp] = useState({
+    name: "",
+    department: "IT",
+    position: "",
+    email: "",
+    phone: "",
+    status: "active",
+  });
 
   const isHR = user?.role === "hr" || user?.R_name === "hr";
-  const isManager = user?.role === "manager" || user?.R_name === "manager";
   const isAdmin = user?.role === "admin" || user?.R_name === "admin";
   const isEmployee = user?.role === "employee" || user?.R_name === "employee";
 
   const userDepartment = user?.department || user?.Department_ID || null;
-  const baseEmployees = isEmployee && userDepartment
-    ? employees.filter(e => e.department === userDepartment)
-    : employees;
+  const employeeDepartmentMatch = employees.filter((employee) => employee.department === userDepartment);
+  const shouldLimitByDepartment = isEmployee && userDepartment && employeeDepartmentMatch.length > 0;
+  const availableEmployees = shouldLimitByDepartment ? employeeDepartmentMatch : employees;
 
-  const filtered = baseEmployees.filter(e => {
-    const matchSearch = e.name.toLowerCase().includes(search.toLowerCase()) ||
-      e.position.toLowerCase().includes(search.toLowerCase());
-    const matchDept = deptFilter === "Все" || e.department === deptFilter;
-    const matchStatus = statusFilter === "Все" || e.status === statusFilter;
+  const filteredEmployees = availableEmployees.filter((employee) => {
+    const normalizedSearch = search.trim().toLowerCase();
+    const matchSearch = !normalizedSearch
+      || employee.name.toLowerCase().includes(normalizedSearch)
+      || employee.position.toLowerCase().includes(normalizedSearch);
+    const matchDept = deptFilter === "Все" || employee.department === deptFilter;
+    const matchStatus = statusFilter === "Все" || statusConfig[employee.status]?.label === statusFilter;
     return matchSearch && matchDept && matchStatus;
   });
 
+  const employeeStats = [
+    { label: "Всего", value: availableEmployees.length, color: "stat-indigo" },
+    { label: "Активны", value: availableEmployees.filter((employee) => employee.status === "active").length, color: "stat-emerald" },
+    { label: "В отпуске", value: availableEmployees.filter((employee) => employee.status === "vacation").length, color: "stat-blue" },
+    { label: "На больничном", value: availableEmployees.filter((employee) => employee.status === "sick").length, color: "stat-red" },
+  ];
+
   function handleAdd() {
     if (!newEmp.name || !newEmp.position) return;
-    const emp = {
+
+    const employee = {
       id: employees.length + 1,
       ...newEmp,
       kpi: Math.floor(70 + Math.random() * 25),
       hireDate: "2026-03-11",
-      avatar: newEmp.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(),
+      avatar: newEmp.name.split(" ").map((word) => word[0]).join("").slice(0, 2).toUpperCase(),
     };
-    setEmployees([...employees, emp]);
+
+    setEmployees([...employees, employee]);
     setShowAddModal(false);
     setNewEmp({ name: "", department: "IT", position: "", email: "", phone: "", status: "active" });
   }
@@ -68,21 +85,21 @@ export const Employees = () => {
             type="text"
             placeholder="Поиск сотрудника..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={(event) => setSearch(event.target.value)}
             className="search-input"
           />
         </div>
         <select
           value={deptFilter}
-          onChange={e => setDeptFilter(e.target.value)}
+          onChange={(event) => setDeptFilter(event.target.value)}
           className="filter-select"
         >
           <option>Все</option>
-          {departments.map(d => <option key={d.id}>{d.name}</option>)}
+          {departments.map((department) => <option key={department.id}>{department.name}</option>)}
         </select>
         <select
           value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value)}
+          onChange={(event) => setStatusFilter(event.target.value)}
           className="filter-select"
         >
           <option>Все</option>
@@ -101,15 +118,10 @@ export const Employees = () => {
       </div>
 
       <div className="stats-grid">
-        {[
-          { label: "Всего", value: filtered.length, color: "stat-indigo" },
-          { label: "Активны", value: filtered.filter(e => e.status === "active").length, color: "stat-emerald" },
-          { label: "В отпуске", value: filtered.filter(e => e.status === "vacation").length, color: "stat-blue" },
-          { label: "На больничном", value: filtered.filter(e => e.status === "sick").length, color: "stat-red" },
-        ].map(s => (
-          <div key={s.label} className="stat-card-small">
-            <span className="stat-label-small">{s.label}</span>
-            <span className={`stat-value-small ${s.color}`}>{s.value}</span>
+        {employeeStats.map((stat) => (
+          <div key={stat.label} className="stat-card-small">
+            <span className="stat-label-small">{stat.label}</span>
+            <span className={`stat-value-small ${stat.color}`}>{stat.value}</span>
           </div>
         ))}
       </div>
@@ -130,39 +142,39 @@ export const Employees = () => {
               </tr>
             </thead>
             <tbody className="table-body">
-              {filtered.map(emp => {
-                const s = statusConfig[emp.status];
+              {filteredEmployees.map((employee) => {
+                const status = statusConfig[employee.status];
                 return (
-                  <tr key={emp.id} className="table-row">
+                  <tr key={employee.id} className="table-row">
                     <td className="table-cell">
                       <div className="employee-cell">
-                        <div className="employee-avatar-small">{emp.avatar}</div>
-                        <span className="employee-name-cell">{emp.name}</span>
+                        <div className="employee-avatar-small">{employee.avatar}</div>
+                        <span className="employee-name-cell">{employee.name}</span>
                       </div>
                     </td>
-                    <td className="table-cell">{emp.department}</td>
-                    <td className="table-cell">{emp.position}</td>
+                    <td className="table-cell">{employee.department}</td>
+                    <td className="table-cell">{employee.position}</td>
                     <td className="table-cell">
                       <div className="kpi-cell">
                         <div className="kpi-bar-container">
                           <div
-                            className={`kpi-bar ${kpiColor(emp.kpi)}`}
-                            style={{ width: `${emp.kpi}%` }}
+                            className={`kpi-bar ${kpiColor(employee.kpi)}`}
+                            style={{ width: `${employee.kpi}%` }}
                           ></div>
                         </div>
-                        <span className={`kpi-value ${kpiColor(emp.kpi)}`}>{emp.kpi}%</span>
+                        <span className={`kpi-value ${kpiColor(employee.kpi)}`}>{employee.kpi}%</span>
                       </div>
                     </td>
                     <td className="table-cell">
-                      <span className={`status-badge-small ${s.color}`}>{s.label}</span>
+                      <span className={`status-badge-small ${status.color}`}>{status.label}</span>
                     </td>
-                    <td className="table-cell date-cell">{emp.hireDate}</td>
+                    <td className="table-cell date-cell">{employee.hireDate}</td>
                     <td className="table-cell">
                       <div className="contact-icons">
-                        <a href={`mailto:${emp.email}`} className="contact-icon" title={emp.email}>
+                        <a href={`mailto:${employee.email}`} className="contact-icon" title={employee.email}>
                           <Email sx={{ fontSize: 15 }} />
                         </a>
-                        <span className="contact-icon" title={emp.phone}>
+                        <span className="contact-icon" title={employee.phone}>
                           <Phone sx={{ fontSize: 15 }} />
                         </span>
                       </div>
@@ -174,7 +186,7 @@ export const Employees = () => {
                             <Edit sx={{ fontSize: 13 }} />
                           </button>
                           <button
-                            onClick={() => setEmployees(employees.filter(e => e.id !== emp.id))}
+                            onClick={() => setEmployees(employees.filter((item) => item.id !== employee.id))}
                             className="action-btn delete-btn"
                           >
                             <Delete sx={{ fontSize: 13 }} />
@@ -187,7 +199,7 @@ export const Employees = () => {
               })}
             </tbody>
           </table>
-          {filtered.length === 0 && (
+          {filteredEmployees.length === 0 && (
             <div className="empty-state">Сотрудники не найдены</div>
           )}
         </div>
@@ -208,14 +220,14 @@ export const Employees = () => {
                 { label: "Должность *", key: "position", type: "text", placeholder: "Инженер" },
                 { label: "Email", key: "email", type: "email", placeholder: "ivanov@corp.ru" },
                 { label: "Телефон", key: "phone", type: "text", placeholder: "+7 (900) 000-00-00" },
-              ].map(field => (
+              ].map((field) => (
                 <div key={field.key} className="form-group">
                   <label className="form-label">{field.label}</label>
                   <input
                     type={field.type}
                     placeholder={field.placeholder}
                     value={newEmp[field.key]}
-                    onChange={e => setNewEmp({ ...newEmp, [field.key]: e.target.value })}
+                    onChange={(event) => setNewEmp({ ...newEmp, [field.key]: event.target.value })}
                     className="form-input"
                   />
                 </div>
@@ -224,10 +236,10 @@ export const Employees = () => {
                 <label className="form-label">Отдел</label>
                 <select
                   value={newEmp.department}
-                  onChange={e => setNewEmp({ ...newEmp, department: e.target.value })}
+                  onChange={(event) => setNewEmp({ ...newEmp, department: event.target.value })}
                   className="form-select"
                 >
-                  {departments.map(d => <option key={d.id}>{d.name}</option>)}
+                  {departments.map((department) => <option key={department.id}>{department.name}</option>)}
                 </select>
               </div>
             </div>
@@ -244,4 +256,4 @@ export const Employees = () => {
       )}
     </div>
   );
-}
+};

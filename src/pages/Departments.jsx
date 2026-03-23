@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { Add, People, TrendingUp, ChevronRight, Close } from "@mui/icons-material";
 import { departments as initialDepts, employees } from "../data/mockData";
@@ -12,28 +12,47 @@ export const Departments = () => {
   const [newDept, setNewDept] = useState({ name: "", head: "" });
 
   const isHR = user?.role === "hr" || user?.R_name === "hr";
-  const isManager = user?.role === "manager" || user?.R_name === "manager";
   const isAdmin = user?.role === "admin" || user?.R_name === "admin";
   const isEmployee = user?.role === "employee" || user?.R_name === "employee";
 
-  const userDepartment = user?.department || user?.Department_ID || null;
-  const filteredDepts = isEmployee && userDepartment
-    ? depts.filter(d => d.name === userDepartment)
-    : depts;
+  const departmentsWithStats = useMemo(() => (
+    depts.map((dept) => {
+      const deptEmployees = employees.filter((employee) => employee.department === dept.name);
+      const kpi = deptEmployees.length
+        ? Math.round(deptEmployees.reduce((sum, employee) => sum + employee.kpi, 0) / deptEmployees.length)
+        : 0;
 
-  const selectedDept = filteredDepts.find(d => d.id === selected);
-  const deptEmployees = employees.filter(e => e.department === selectedDept?.name);
+      return {
+        ...dept,
+        employeeCount: deptEmployees.length,
+        kpi,
+      };
+    })
+  ), [depts]);
+
+  const userDepartment = user?.department || user?.Department_ID || null;
+  const departmentMatch = departmentsWithStats.filter((dept) => dept.name === userDepartment);
+  const shouldLimitByDepartment = isEmployee && userDepartment && departmentMatch.length > 0;
+  const filteredDepts = shouldLimitByDepartment ? departmentMatch : departmentsWithStats;
+
+  const selectedDept = filteredDepts.find((dept) => dept.id === selected) ?? filteredDepts[0] ?? null;
+  const deptEmployees = employees.filter((employee) => employee.department === selectedDept?.name);
+  const totalVisibleEmployees = filteredDepts.reduce((sum, dept) => sum + dept.employeeCount, 0);
 
   function handleAdd() {
     if (!newDept.name) return;
-    setDepts([...depts, {
-      id: depts.length + 1,
-      name: newDept.name,
-      head: newDept.head,
-      employeeCount: 0,
-      kpi: 0,
-      color: `#${Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, "0")}`,
-    }]);
+
+    setDepts([
+      ...depts,
+      {
+        id: depts.length + 1,
+        name: newDept.name,
+        head: newDept.head,
+        employeeCount: 0,
+        kpi: 0,
+        color: `#${Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, "0")}`,
+      },
+    ]);
     setShowAdd(false);
     setNewDept({ name: "", head: "" });
   }
@@ -44,7 +63,7 @@ export const Departments = () => {
     <div className="departments-page">
       <div className="departments-header">
         <span className="departments-summary">
-          {filteredDepts.length} отделов · {employees.length} сотрудников
+          {filteredDepts.length} отделов · {totalVisibleEmployees} сотрудников
         </span>
         {canAddDepartment && (
           <button
@@ -58,23 +77,23 @@ export const Departments = () => {
 
       <div className="departments-content">
         <div className="dept-cards-grid">
-          {filteredDepts.map(dept => (
+          {filteredDepts.map((dept) => (
             <div
               key={dept.id}
               onClick={() => setSelected(selected === dept.id ? null : dept.id)}
-              className={`dept-card ${selected === dept.id ? "dept-card-selected" : ""}`}
+              className={`dept-card ${selectedDept?.id === dept.id ? "dept-card-selected" : ""}`}
             >
               <div className="dept-card-header">
                 <div className="dept-card-info">
-                  <div className="dept-card-icon" style={{ backgroundColor: dept.color + "20" }}>
+                  <div className="dept-card-icon" style={{ backgroundColor: `${dept.color}20` }}>
                     <div className="dept-card-dot" style={{ backgroundColor: dept.color }}></div>
                   </div>
                   <div>
                     <h3 className="dept-card-title">{dept.name}</h3>
-                    <p className="dept-card-head">Рук.: {dept.head}</p>
+                    <p className="dept-card-head">Рук.: {dept.head || "Не назначен"}</p>
                   </div>
                 </div>
-                <ChevronRight sx={{ fontSize: 16 }} className={`dept-card-arrow ${selected === dept.id ? "dept-card-arrow-rotated" : ""}`} />
+                <ChevronRight sx={{ fontSize: 16 }} className={`dept-card-arrow ${selectedDept?.id === dept.id ? "dept-card-arrow-rotated" : ""}`} />
               </div>
 
               <div className="dept-card-stats">
@@ -103,7 +122,7 @@ export const Departments = () => {
           {selectedDept ? (
             <div>
               <div className="dept-detail-header">
-                <div className="dept-detail-icon" style={{ backgroundColor: selectedDept.color + "20" }}>
+                <div className="dept-detail-icon" style={{ backgroundColor: `${selectedDept.color}20` }}>
                   <div className="dept-detail-dot" style={{ backgroundColor: selectedDept.color }}></div>
                 </div>
                 <div>
@@ -115,11 +134,11 @@ export const Departments = () => {
               <div className="dept-detail-info">
                 <div className="detail-row">
                   <span className="detail-label">Руководитель</span>
-                  <span className="detail-value">{selectedDept.head}</span>
+                  <span className="detail-value">{selectedDept.head || "Не назначен"}</span>
                 </div>
                 <div className="detail-row">
                   <span className="detail-label">KPI отдела</span>
-                  <span className={`detail-kpi ${selectedDept.kpi >= 85 ? "kpi-high" : "kpi-medium"}`}>
+                  <span className={`detail-kpi ${selectedDept.kpi >= 85 ? "kpi-high" : selectedDept.kpi >= 75 ? "kpi-medium" : "kpi-low"}`}>
                     {selectedDept.kpi}%
                   </span>
                 </div>
@@ -128,15 +147,15 @@ export const Departments = () => {
               <h4 className="dept-employees-title">Сотрудники отдела</h4>
               {deptEmployees.length > 0 ? (
                 <div className="dept-employees-list">
-                  {deptEmployees.map(emp => (
-                    <div key={emp.id} className="dept-employee-item">
-                      <div className="dept-employee-avatar">{emp.avatar}</div>
+                  {deptEmployees.map((employee) => (
+                    <div key={employee.id} className="dept-employee-item">
+                      <div className="dept-employee-avatar">{employee.avatar}</div>
                       <div className="dept-employee-info">
-                        <p className="dept-employee-name">{emp.name}</p>
-                        <p className="dept-employee-position">{emp.position}</p>
+                        <p className="dept-employee-name">{employee.name}</p>
+                        <p className="dept-employee-position">{employee.position}</p>
                       </div>
-                      <span className={`dept-employee-kpi ${emp.kpi >= 90 ? "kpi-high" : emp.kpi >= 75 ? "kpi-medium" : "kpi-low"}`}>
-                        {emp.kpi}%
+                      <span className={`dept-employee-kpi ${employee.kpi >= 90 ? "kpi-high" : employee.kpi >= 75 ? "kpi-medium" : "kpi-low"}`}>
+                        {employee.kpi}%
                       </span>
                     </div>
                   ))}
@@ -172,7 +191,7 @@ export const Departments = () => {
               </tr>
             </thead>
             <tbody className="summary-table-body">
-              {filteredDepts.map(dept => (
+              {filteredDepts.map((dept) => (
                 <tr key={dept.id} className="summary-table-row">
                   <td className="summary-table-cell">
                     <div className="summary-dept-name">
@@ -180,7 +199,7 @@ export const Departments = () => {
                       <span className="summary-dept-text">{dept.name}</span>
                     </div>
                   </td>
-                  <td className="summary-table-cell">{dept.head}</td>
+                  <td className="summary-table-cell">{dept.head || "Не назначен"}</td>
                   <td className="summary-table-cell">{dept.employeeCount}</td>
                   <td className="summary-table-cell">
                     <span className={`summary-kpi ${dept.kpi >= 85 ? "kpi-high" : dept.kpi >= 75 ? "kpi-medium" : "kpi-low"}`}>
@@ -215,7 +234,7 @@ export const Departments = () => {
                   type="text"
                   placeholder="Например: Юридический"
                   value={newDept.name}
-                  onChange={e => setNewDept({ ...newDept, name: e.target.value })}
+                  onChange={(event) => setNewDept({ ...newDept, name: event.target.value })}
                   className="form-input"
                 />
               </div>
@@ -225,7 +244,7 @@ export const Departments = () => {
                   type="text"
                   placeholder="ФИО руководителя"
                   value={newDept.head}
-                  onChange={e => setNewDept({ ...newDept, head: e.target.value })}
+                  onChange={(event) => setNewDept({ ...newDept, head: event.target.value })}
                   className="form-input"
                 />
               </div>
@@ -243,4 +262,4 @@ export const Departments = () => {
       )}
     </div>
   );
-}
+};
