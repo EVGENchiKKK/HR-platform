@@ -3,6 +3,7 @@ import Cookies from 'js-cookie';
 
 const AUTH_ENDPOINTS = {
   REGISTER: '/auth/register',
+  REGISTER_META: '/auth/register-meta',
   LOGIN: '/auth/login',
   LOGOUT: '/auth/logout',
   ME: '/auth/me',
@@ -10,14 +11,25 @@ const AUTH_ENDPOINTS = {
 
 export const register = async (userData) => {
   const response = await axiosInstance.post(AUTH_ENDPOINTS.REGISTER, {
+    login: userData.login,
     firstName: userData.firstName,
     lastName: userData.lastName,
+    middleName: userData.middleName,
     email: userData.email,
+    phone: userData.phone,
+    hireDate: userData.hireDate,
+    roleId: userData.roleId,
+    departmentId: userData.departmentId,
     password: userData.password,
     confirmPassword: userData.confirmPassword,
     agreeTerms: userData.agreeTerms,
   });
   
+  return response.data;
+};
+
+export const getRegisterMeta = async () => {
+  const response = await axiosInstance.get(AUTH_ENDPOINTS.REGISTER_META);
   return response.data;
 };
 
@@ -67,6 +79,7 @@ export const getUserFromCookie = () => {
 
 export default {
   register,
+  getRegisterMeta,
   login,
   logout,
   getCurrentUser,

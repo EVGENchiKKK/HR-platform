@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
 import {
   People,
@@ -8,45 +8,108 @@ import {
   ArrowUpward,
   ArrowDownward,
   CheckCircle,
-  Schedule,
-  Cancel,
+  Cancel
 } from "@mui/icons-material";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, Legend
 } from "recharts";
-import { employees, kpiTrend, taskStatusData, departments } from "../data/mockData";
 import "./../style/dashboard.css";
 
 const statusConfig = {
   active: { label: "Активен", color: "status-active", icon: CheckCircle },
-  vacation: { label: "Отпуск", color: "status-vacation", icon: Schedule },
-  sick: { label: "Больничный", color: "status-sick", icon: Cancel },
+  inactive: { label: "Неактивен", color: "status-sick", icon: Cancel }
 };
 
 export const Dashboard = () => {
-  const { user } = useOutletContext();
-  const [selectedPeriod, setSelectedPeriod] = useState("6м");
+  const { user, workspaceData, workspaceLoading, workspaceError } = useOutletContext();
+
+  const { employees, tasks, appeals, departments, surveys, monthlyStats = [] } = workspaceData;
 
   const getUserName = () => {
     if (!user) return "Пользователь";
     return user.firstName || user.U_name || "Пользователь";
   };
 
+  const taskStatusData = useMemo(() => {
+    const source = [
+      { key: "completed", name: "Выполнено", color: "#22c55e" },
+      { key: "in_progress", name: "В работе", color: "#6366f1" },
+      { key: "pending", name: "Ожидает", color: "#f59e0b" },
+      { key: "cancelled", name: "Отменено", color: "#ef4444" }
+    ];
+
+    return source.map((item) => ({
+      ...item,
+      value: tasks.filter((task) => task.status === item.key).length
+    }));
+  }, [tasks]);
+
+  const avgKpi = employees.length
+    ? Math.round(employees.reduce((sum, employee) => sum + employee.kpi, 0) / employees.length)
+    : 0;
+
+  const openAppeals = appeals.filter((item) => item.status === "open" || item.status === "in_review").length;
+  const completedTasks = tasks.filter((task) => task.status === "completed").length;
+  const currentMonth = monthlyStats.at(-1);
+  const previousMonth = monthlyStats.at(-2);
+
+  const monthDelta = (currentValue, previousValue) => {
+    const diff = (currentValue || 0) - (previousValue || 0);
+    return `${diff >= 0 ? "+" : ""}${diff}`;
+  };
+
   const statCards = [
-    { label: "Всего сотрудников", value: "101", icon: People, color: "bg-indigo", change: "+3", up: true, sub: "За последний месяц" },
-    { label: "Средний KPI", value: "84.6%", icon: TrendingUp, color: "bg-emerald", change: "+2.1%", up: true, sub: "По всем отделам" },
-    { label: "Задач выполнено", value: "34", icon: AssignmentTurnedIn, color: "bg-violet", change: "-2", up: false, sub: "Из 88 активных" },
-    { label: "Открытых обращений", value: "3", icon: ReportProblem, color: "bg-amber", change: "+1", up: false, sub: "Требуют ответа" },
+    {
+      label: "Всего сотрудников",
+      value: `${employees.length}`,
+      icon: People,
+      color: "bg-indigo",
+      change: monthDelta(currentMonth?.hires, previousMonth?.hires),
+      up: (currentMonth?.hires || 0) >= (previousMonth?.hires || 0),
+      sub: "Найм по месяцам"
+    },
+    {
+      label: "Средний KPI",
+      value: `${avgKpi}%`,
+      icon: TrendingUp,
+      color: "bg-emerald",
+      change: `${avgKpi >= 80 ? "+" : ""}${avgKpi - 75}%`,
+      up: avgKpi >= 75,
+      sub: "По всем отделам"
+    },
+    {
+      label: "Задач создано",
+      value: `${currentMonth?.tasks || 0}`,
+      icon: AssignmentTurnedIn,
+      color: "bg-violet",
+      change: monthDelta(currentMonth?.tasks, previousMonth?.tasks),
+      up: (currentMonth?.tasks || 0) >= (previousMonth?.tasks || 0),
+      sub: "Текущий месяц"
+    },
+    {
+      label: "Обращений за месяц",
+      value: `${currentMonth?.appeals || 0}`,
+      icon: ReportProblem,
+      color: "bg-amber",
+      change: monthDelta(currentMonth?.appeals, previousMonth?.appeals),
+      up: (currentMonth?.appeals || 0) <= (previousMonth?.appeals || 0),
+      sub: "Сравнение с прошлым месяцем"
+    },
   ];
+
+  if (workspaceLoading) {
+    return <div className="dashboard">Загрузка данных...</div>;
+  }
+
+  if (workspaceError) {
+    return <div className="dashboard">{workspaceError}</div>;
+  }
 
   return (
     <div className="dashboard">
       <div className="welcome-banner">
         <div className="welcome-content">
-          <h1 className="welcome-title">
-            Добро пожаловать, {getUserName()}!
-          </h1>
+          <h1 className="welcome-title">Добро пожаловать, {getUserName()}!</h1>
           <p className="welcome-date">
             Сегодня, {new Date().toLocaleDateString("ru-RU", {
               day: "numeric",
@@ -58,16 +121,16 @@ export const Dashboard = () => {
         </div>
         <div className="welcome-stats">
           <div className="stat-item">
-            <span className="stat-number">5</span>
-            <span className="stat-label">Новых событий</span>
+            <span className="stat-number">{openAppeals}</span>
+            <span className="stat-label">Активных обращений</span>
           </div>
           <div className="stat-item">
-            <span className="stat-number">2</span>
+            <span className="stat-number">{surveys.filter((survey) => survey.status === "active").length}</span>
             <span className="stat-label">Опросов активно</span>
           </div>
           <div className="stat-item">
-            <span className="stat-number">8</span>
-            <span className="stat-label">Задач сегодня</span>
+            <span className="stat-number">{tasks.filter((task) => task.status === "in_progress").length}</span>
+            <span className="stat-label">Задач в работе</span>
           </div>
         </div>
         <div className="welcome-icon">
@@ -103,31 +166,20 @@ export const Dashboard = () => {
         <div className="chart-card chart-card-large">
           <div className="chart-header">
             <div>
-              <h3 className="chart-title">Динамика KPI по отделам</h3>
+              <h3 className="chart-title">Статистика по месяцам</h3>
               <p className="chart-subtitle">Последние 6 месяцев</p>
-            </div>
-            <div className="period-selector">
-              {["3м", "6м", "1г"].map(p => (
-                <button
-                  key={p}
-                  onClick={() => setSelectedPeriod(p)}
-                  className={`period-btn ${selectedPeriod === p ? "period-btn-active" : ""}`}
-                >{p}</button>
-              ))}
             </div>
           </div>
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={kpiTrend}>
+            <LineChart data={monthlyStats}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-              <YAxis domain={[60, 100]} tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} />
               <Tooltip contentStyle={{ borderRadius: "8px", fontSize: "12px" }} />
               <Legend wrapperStyle={{ fontSize: "11px" }} />
-              <Line type="monotone" dataKey="production" name="Производство" stroke="#6366f1" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="it" name="IT" stroke="#22c55e" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="hr" name="HR" stroke="#f59e0b" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="marketing" name="Маркетинг" stroke="#14b8a6" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="logistics" name="Логистика" stroke="#f97316" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="tasks" name="Задачи" stroke="#6366f1" strokeWidth={2.5} />
+              <Line type="monotone" dataKey="appeals" name="Обращения" stroke="#f59e0b" strokeWidth={2.5} />
+              <Line type="monotone" dataKey="hires" name="Найм" stroke="#22c55e" strokeWidth={2.5} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -138,16 +190,16 @@ export const Dashboard = () => {
           <ResponsiveContainer width="100%" height={160}>
             <PieChart>
               <Pie data={taskStatusData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={3} dataKey="value">
-                {taskStatusData.map((entry, index) => (
-                  <Cell key={index} fill={entry.color} />
+                {taskStatusData.map((entry) => (
+                  <Cell key={entry.key} fill={entry.color} />
                 ))}
               </Pie>
               <Tooltip contentStyle={{ borderRadius: "8px", fontSize: "12px" }} />
             </PieChart>
           </ResponsiveContainer>
           <div className="pie-legend">
-            {taskStatusData.map(item => (
-              <div key={item.name} className="pie-legend-item">
+            {taskStatusData.map((item) => (
+              <div key={item.key} className="pie-legend-item">
                 <div className="pie-legend-color" style={{ backgroundColor: item.color }}></div>
                 <span className="pie-legend-label">{item.name}</span>
                 <span className="pie-legend-value">{item.value}</span>
@@ -159,19 +211,16 @@ export const Dashboard = () => {
 
       <div className="bottom-row">
         <div className="chart-card">
-          <h3 className="chart-title">KPI по отделам</h3>
-          <p className="chart-subtitle">Март 2026</p>
+          <h3 className="chart-title">Нагрузка отделов</h3>
+          <p className="chart-subtitle">Активные задачи и обращения</p>
           <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={departments} layout="vertical" barSize={14}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-              <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} />
-              <YAxis dataKey="name" type="category" width={90} tick={{ fontSize: 11 }} />
+            <BarChart data={departments}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} />
               <Tooltip contentStyle={{ borderRadius: "8px", fontSize: "12px" }} />
-              <Bar dataKey="kpi" name="KPI %" radius={[0, 4, 4, 0]}>
-                {departments.map((entry) => (
-                  <Cell key={entry.id} fill={entry.color} />
-                ))}
-              </Bar>
+              <Bar dataKey="activeTasks" name="Активные задачи" fill="#6366f1" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="appealCount" name="Обращения" fill="#f59e0b" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -180,24 +229,23 @@ export const Dashboard = () => {
           <div className="chart-header-link">
             <div>
               <h3 className="chart-title">Сотрудники</h3>
-              <p className="chart-subtitle">Последняя активность</p>
+              <p className="chart-subtitle">Данные из базы</p>
             </div>
             <a href="/employees" className="view-all-link">Все</a>
           </div>
           <div className="employee-list">
-            {employees.slice(0, 5).map(emp => {
-              const s = statusConfig[emp.status];
-              const SIcon = s.icon;
+            {employees.slice(0, 5).map((employee) => {
+              const status = statusConfig[employee.status] || statusConfig.active;
               return (
-                <div key={emp.id} className="employee-item">
-                  <div className="employee-avatar">{emp.avatar}</div>
+                <div key={employee.id} className="employee-item">
+                  <div className="employee-avatar">{employee.avatar}</div>
                   <div className="employee-info">
-                    <p className="employee-name">{emp.name}</p>
-                    <p className="employee-department">{emp.department} · {emp.position}</p>
+                    <p className="employee-name">{employee.name}</p>
+                    <p className="employee-department">{employee.department} · {employee.position}</p>
                   </div>
                   <div className="employee-stats">
-                    <span className="employee-kpi">{emp.kpi}%</span>
-                    <span className={`status-badge ${s.color}`}>{s.label}</span>
+                    <span className="employee-kpi">{employee.kpi}%</span>
+                    <span className={`status-badge ${status.color}`}>{status.label}</span>
                   </div>
                 </div>
               );
@@ -207,4 +255,4 @@ export const Dashboard = () => {
       </div>
     </div>
   );
-}
+};

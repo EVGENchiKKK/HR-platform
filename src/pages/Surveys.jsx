@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 import { AssignmentTurnedIn, Groups, Poll, Quiz } from "@mui/icons-material";
-import { surveys } from "../data/mockData";
 import "./../style/workspace-pages.css";
 
 const typeLabels = {
@@ -15,8 +15,10 @@ const statusLabels = {
 };
 
 export const Surveys = () => {
+  const { workspaceData, workspaceLoading, workspaceError } = useOutletContext();
   const [typeFilter, setTypeFilter] = useState("all");
 
+  const surveys = workspaceData.surveys || [];
   const visibleSurveys = surveys.filter((item) => typeFilter === "all" || item.type === typeFilter);
   const completionRate = useMemo(() => {
     const totals = surveys.reduce(
@@ -29,7 +31,15 @@ export const Surveys = () => {
     );
 
     return totals.total ? Math.round((totals.responses / totals.total) * 100) : 0;
-  }, []);
+  }, [surveys]);
+
+  if (workspaceLoading) {
+    return <div className="workspace-page">Загрузка данных...</div>;
+  }
+
+  if (workspaceError) {
+    return <div className="workspace-page">{workspaceError}</div>;
+  }
 
   return (
     <div className="workspace-page">
@@ -37,9 +47,7 @@ export const Surveys = () => {
         <div>
           <span className="workspace-eyebrow">Обратная связь</span>
           <h2 className="workspace-title">Опросы и тестирование</h2>
-          <p className="workspace-description">
-            Контроль прохождения опросов, аттестаций и внутренних проверок знаний.
-          </p>
+          <p className="workspace-description">Контроль прохождения опросов, аттестаций и внутренних проверок знаний.</p>
         </div>
         <div className="workspace-metrics">
           <div className="workspace-metric">
@@ -73,8 +81,8 @@ export const Surveys = () => {
             return (
               <article key={item.id} className="workspace-card">
                 <div className="workspace-card-top">
-                  <span className={`workspace-pill workspace-pill-${item.status}`}>{statusLabels[item.status]}</span>
-                  <span className="workspace-pill workspace-pill-neutral">{typeLabels[item.type]}</span>
+                  <span className={`workspace-pill workspace-pill-${item.status}`}>{statusLabels[item.status] || item.status}</span>
+                  <span className="workspace-pill workspace-pill-neutral">{typeLabels[item.type] || item.type}</span>
                 </div>
                 <h3 className="workspace-card-title">{item.title}</h3>
                 <p className="workspace-card-copy">{item.description}</p>
@@ -89,7 +97,7 @@ export const Surveys = () => {
                   </div>
                   <div className="workspace-meta-item">
                     <AssignmentTurnedIn sx={{ fontSize: 16 }} />
-                    <span>Дедлайн: {item.deadline}</span>
+                    <span>Дедлайн: {item.deadline || "Не указан"}</span>
                   </div>
                 </div>
                 <div className="workspace-progress">

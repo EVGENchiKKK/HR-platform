@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 import { CalendarToday, Flag, TaskAlt, WarningAmber } from "@mui/icons-material";
-import { tasks } from "../data/mockData";
 import "./../style/workspace-pages.css";
 
 const statusLabels = {
   pending: "Ожидает",
   in_progress: "В работе",
   completed: "Завершена",
+  cancelled: "Отменена",
 };
 
 const priorityLabels = {
@@ -16,13 +17,12 @@ const priorityLabels = {
 };
 
 export const Tasks = () => {
+  const { workspaceData, workspaceLoading, workspaceError } = useOutletContext();
   const [statusFilter, setStatusFilter] = useState("all");
   const [departmentFilter, setDepartmentFilter] = useState("all");
 
-  const departments = useMemo(
-    () => [...new Set(tasks.map((task) => task.department))],
-    [],
-  );
+  const tasks = workspaceData.tasks || [];
+  const departments = useMemo(() => [...new Set(tasks.map((task) => task.department))], [tasks]);
 
   const filteredTasks = tasks.filter((task) => {
     const statusMatch = statusFilter === "all" || task.status === statusFilter;
@@ -31,7 +31,15 @@ export const Tasks = () => {
   });
 
   const completedTasks = tasks.filter((task) => task.status === "completed").length;
-  const overdueTasks = tasks.filter((task) => task.deadline < "2026-03-24" && task.status !== "completed").length;
+  const overdueTasks = tasks.filter((task) => task.deadline < new Date().toISOString().slice(0, 10) && task.status !== "completed").length;
+
+  if (workspaceLoading) {
+    return <div className="workspace-page">Загрузка данных...</div>;
+  }
+
+  if (workspaceError) {
+    return <div className="workspace-page">{workspaceError}</div>;
+  }
 
   return (
     <div className="workspace-page">
@@ -39,9 +47,7 @@ export const Tasks = () => {
         <div>
           <span className="workspace-eyebrow">Исполнение KPI</span>
           <h2 className="workspace-title">Задачи и контроль сроков</h2>
-          <p className="workspace-description">
-            Единая лента задач по подразделениям, приоритетам и дедлайнам.
-          </p>
+          <p className="workspace-description">Единая лента задач по подразделениям, приоритетам и дедлайнам.</p>
         </div>
         <div className="workspace-metrics">
           <div className="workspace-metric">
@@ -66,6 +72,7 @@ export const Tasks = () => {
             <option value="pending">Ожидает</option>
             <option value="in_progress">В работе</option>
             <option value="completed">Завершена</option>
+            <option value="cancelled">Отменена</option>
           </select>
           <select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)} className="workspace-select">
             <option value="all">Все отделы</option>
@@ -83,7 +90,8 @@ export const Tasks = () => {
                 <span className={`workspace-pill workspace-pill-${task.priority}`}>{priorityLabels[task.priority]}</span>
               </div>
               <h3 className="workspace-card-title">{task.title}</h3>
-              <p className="workspace-card-subtitle">{task.department} • {task.assignee}</p>
+              <p className="workspace-card-copy">{task.description}</p>
+              <p className="workspace-card-subtitle">{task.department} · {task.assignee}</p>
               <div className="workspace-meta-list">
                 <div className="workspace-meta-item">
                   <CalendarToday sx={{ fontSize: 16 }} />

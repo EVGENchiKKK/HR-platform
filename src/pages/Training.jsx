@@ -1,17 +1,26 @@
+import { useOutletContext } from "react-router-dom";
 import { AutoStories, CheckCircleOutline, Groups, School } from "@mui/icons-material";
-import { courses } from "../data/mockData";
 import "./../style/workspace-pages.css";
 
 export const Training = () => {
+  const { workspaceData, workspaceLoading, workspaceError } = useOutletContext();
+  const courses = workspaceData.courses || [];
+
+  if (workspaceLoading) {
+    return <div className="workspace-page">Загрузка данных...</div>;
+  }
+
+  if (workspaceError) {
+    return <div className="workspace-page">{workspaceError}</div>;
+  }
+
   return (
     <div className="workspace-page">
       <section className="workspace-hero">
         <div>
           <span className="workspace-eyebrow">Развитие команды</span>
           <h2 className="workspace-title">Обучение и курсы</h2>
-          <p className="workspace-description">
-            Каталог программ для онбординга, безопасности и развития управленческих навыков.
-          </p>
+          <p className="workspace-description">Каталог программ для онбординга, безопасности и развития управленческих навыков.</p>
         </div>
         <div className="workspace-metrics">
           <div className="workspace-metric">
@@ -49,7 +58,7 @@ export const Training = () => {
                   </div>
                   <div className="workspace-meta-item">
                     <AutoStories sx={{ fontSize: 16 }} />
-                    <span>{course.modules} модулей • {course.duration}</span>
+                    <span>{course.modules} модулей · {course.duration}</span>
                   </div>
                   <div className="workspace-meta-item">
                     <Groups sx={{ fontSize: 16 }} />

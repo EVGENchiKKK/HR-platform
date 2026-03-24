@@ -1,12 +1,14 @@
-import { useMemo, useState } from "react";
-import { Campaign, ErrorOutline, MarkEmailRead, Schedule, SendRounded } from "@mui/icons-material";
-import { appeals } from "../data/mockData";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useOutletContext } from "react-router-dom";
+import { Campaign, ErrorOutline, MarkEmailRead, Schedule, Send } from "@mui/icons-material";
+import workspaceService from "../api/workspaceService";
 import "./../style/workspace-pages.css";
 
 const statusLabels = {
   open: "Открыто",
   in_review: "На рассмотрении",
   resolved: "Решено",
+  closed: "Закрыто",
 };
 
 const priorityLabels = {
@@ -15,81 +17,153 @@ const priorityLabels = {
   low: "Низкий",
 };
 
-const initialMessages = {
-  1: [
-    { id: "1-1", author: "Сергей Морозов", role: "employee", time: "09:14", text: "В цехе №2 сломана система вентиляции, температура превышает допустимую норму." },
-    { id: "1-2", author: "HR Support", role: "support", time: "09:32", text: "Приняли обращение. Передали информацию руководителю производства и службе эксплуатации." },
-  ],
-  2: [
-    { id: "2-1", author: "Ольга Захарова", role: "employee", time: "11:05", text: "Премия за февраль не была начислена вовремя." },
-    { id: "2-2", author: "HR Support", role: "support", time: "11:41", text: "Проверяем начисления с бухгалтерией. Вернемся с ответом до конца дня." },
-  ],
-  3: [
-    { id: "3-1", author: "Аноним", role: "employee", time: "14:25", text: "Описание ситуации конфликта с непосредственным руководителем." },
-    { id: "3-2", author: "HR Support", role: "support", time: "16:10", text: "Провели внутреннюю встречу и закрыли кейс после согласования сторон." },
-  ],
-  4: [
-    { id: "4-1", author: "Иван Белов", role: "employee", time: "10:12", text: "Предлагаю внедрить систему CI/CD для ускорения разработки." },
-  ],
-  5: [
-    { id: "5-1", author: "Наталья Фёдорова", role: "employee", time: "13:08", text: "Нужен графический планшет для работы дизайнера." },
-    { id: "5-2", author: "HR Support", role: "support", time: "13:40", text: "Запрос передан на согласование бюджета и закупки." },
-  ],
+const formatDateTime = (value) => {
+  if (!value) {
+    return "Дата не указана";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 };
 
 export const Appeals = () => {
+  const { user, workspaceData, workspaceLoading, workspaceError, refreshWorkspaceData } = useOutletContext();
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
-  const [selectedId, setSelectedId] = useState(appeals[0]?.id ?? null);
-  const [draftMessage, setDraftMessage] = useState("");
-  const [appealStatuses, setAppealStatuses] = useState(
-    () => appeals.reduce((acc, item) => {
-      acc[item.id] = item.status;
-      return acc;
-    }, {}),
-  );
-  const [messagesByAppeal, setMessagesByAppeal] = useState(initialMessages);
+  const [selectedId, setSelectedId] = useState(null);
+  const [editedStatus, setEditedStatus] = useState("open");
+  const [messageText, setMessageText] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [isSavingStatus, setIsSavingStatus] = useState(false);
+  const [messageError, setMessageError] = useState("");
+  const [messageSuccess, setMessageSuccess] = useState("");
+  const [statusError, setStatusError] = useState("");
+  const [statusSuccess, setStatusSuccess] = useState("");
+  const chatThreadRef = useRef(null);
 
-  const mappedAppeals = useMemo(
-    () => appeals.map((item) => ({ ...item, status: appealStatuses[item.id] ?? item.status })),
-    [appealStatuses],
-  );
+  const appeals = workspaceData.appeals || [];
+  const currentUserId = Number(user?.id || user?.User_ID || 0);
+  const currentUserRole = `${user?.role || user?.R_name || ""}`.toLowerCase();
+  const canManageAppeals = ["hr", "admin"].includes(currentUserRole);
 
-  const filteredAppeals = mappedAppeals.filter((item) => {
-    const statusMatch = statusFilter === "all" || item.status === statusFilter;
-    const priorityMatch = priorityFilter === "all" || item.priority === priorityFilter;
-    return statusMatch && priorityMatch;
-  });
+  const filteredAppeals = useMemo(
+    () =>
+      appeals.filter((item) => {
+        const statusMatch = statusFilter === "all" || item.status === statusFilter;
+        const priorityMatch = priorityFilter === "all" || item.priority === priorityFilter;
+        return statusMatch && priorityMatch;
+      }),
+    [appeals, priorityFilter, statusFilter]
+  );
 
   const selectedAppeal = filteredAppeals.find((item) => item.id === selectedId) ?? filteredAppeals[0] ?? null;
+  const canReplyToAppeal = Boolean(selectedAppeal && (canManageAppeals || Number(selectedAppeal.authorId) === currentUserId));
 
-  const handleStatusChange = (appealId, nextStatus) => {
-    setAppealStatuses((current) => ({
-      ...current,
-      [appealId]: nextStatus,
-    }));
-  };
-
-  const handleSendMessage = () => {
-    if (!selectedAppeal || !draftMessage.trim()) {
+  useEffect(() => {
+    if (!selectedAppeal) {
+      setSelectedId(null);
       return;
     }
 
-    setMessagesByAppeal((current) => ({
-      ...current,
-      [selectedAppeal.id]: [
-        ...(current[selectedAppeal.id] ?? []),
-        {
-          id: `${selectedAppeal.id}-${Date.now()}`,
-          author: "HR Support",
-          role: "support",
-          time: new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
-          text: draftMessage.trim(),
-        },
-      ],
-    }));
-    setDraftMessage("");
+    if (selectedId === null || !filteredAppeals.some((item) => item.id === selectedId)) {
+      setSelectedId(selectedAppeal.id);
+    }
+  }, [filteredAppeals, selectedAppeal, selectedId]);
+
+  useEffect(() => {
+    if (!selectedAppeal) {
+      return;
+    }
+
+    setEditedStatus(selectedAppeal.status);
+    setMessageText("");
+    setMessageError("");
+    setMessageSuccess("");
+    setStatusError("");
+    setStatusSuccess("");
+  }, [selectedAppeal]);
+
+  useEffect(() => {
+    if (!chatThreadRef.current) {
+      return;
+    }
+
+    chatThreadRef.current.scrollTop = chatThreadRef.current.scrollHeight;
+  }, [selectedAppeal]);
+
+  const handleSaveStatus = async () => {
+    if (!selectedAppeal || !canManageAppeals) {
+      return;
+    }
+
+    setIsSavingStatus(true);
+    setStatusError("");
+    setStatusSuccess("");
+
+    try {
+      const result = await workspaceService.updateAppeal(selectedAppeal.id, {
+        status: editedStatus,
+      });
+
+      if (!result.success) {
+        setStatusError(result.error || "Не удалось обновить статус обращения");
+        return;
+      }
+
+      setStatusSuccess("Статус обращения обновлен");
+      await refreshWorkspaceData();
+    } catch (error) {
+      setStatusError(error.response?.data?.error || "Не удалось обновить статус обращения");
+    } finally {
+      setIsSavingStatus(false);
+    }
   };
+
+  const handleSendMessage = async () => {
+    if (!selectedAppeal || !canReplyToAppeal || !messageText.trim()) {
+      return;
+    }
+
+    setIsSending(true);
+    setMessageError("");
+    setMessageSuccess("");
+
+    try {
+      const result = await workspaceService.sendAppealMessage(selectedAppeal.id, {
+        content: messageText,
+      });
+
+      if (!result.success) {
+        setMessageError(result.error || "Не удалось отправить сообщение");
+        return;
+      }
+
+      setMessageText("");
+      setMessageSuccess("Сообщение отправлено");
+      await refreshWorkspaceData();
+    } catch (error) {
+      setMessageError(error.response?.data?.error || "Не удалось отправить сообщение");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  if (workspaceLoading) {
+    return <div className="workspace-page">Загрузка данных...</div>;
+  }
+
+  if (workspaceError) {
+    return <div className="workspace-page">{workspaceError}</div>;
+  }
 
   return (
     <div className="workspace-page">
@@ -98,7 +172,8 @@ export const Appeals = () => {
           <span className="workspace-eyebrow">Служба поддержки</span>
           <h2 className="workspace-title">Обращения сотрудников</h2>
           <p className="workspace-description">
-            Канал для жалоб, предложений и запросов на внутренние изменения.
+            Внутри каждого обращения теперь хранится полная переписка. HR может вести диалог, менять статус и видеть историю
+            сообщений как чат.
           </p>
         </div>
         <div className="workspace-metrics">
@@ -123,6 +198,7 @@ export const Appeals = () => {
           <option value="open">Открыто</option>
           <option value="in_review">На рассмотрении</option>
           <option value="resolved">Решено</option>
+          <option value="closed">Закрыто</option>
         </select>
         <select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)} className="workspace-select">
           <option value="all">Все приоритеты</option>
@@ -156,7 +232,7 @@ export const Appeals = () => {
                 </div>
                 <div className="appeal-list-meta">
                   <span>{item.from}</span>
-                  <span>{item.date}</span>
+                  <span>{formatDateTime(item.lastMessageAt || item.date)}</span>
                 </div>
               </button>
             ))}
@@ -175,25 +251,30 @@ export const Appeals = () => {
                     <span className="workspace-pill workspace-pill-neutral">{selectedAppeal.category}</span>
                   </div>
                   <p className="appeal-detail-meta">
-                    От: {selectedAppeal.from} · {selectedAppeal.department} · {selectedAppeal.date}
+                    От: {selectedAppeal.from} · {selectedAppeal.department} · {formatDateTime(selectedAppeal.date)}
                   </p>
                 </div>
-                <select
-                  value={selectedAppeal.status}
-                  onChange={(event) => handleStatusChange(selectedAppeal.id, event.target.value)}
-                  className="workspace-select appeal-status-select"
-                >
-                  <option value="open">Открыто</option>
-                  <option value="in_review">На рассмотрении</option>
-                  <option value="resolved">Решено</option>
-                </select>
+
+                {canManageAppeals ? (
+                  <div className="appeal-status-panel">
+                    <select
+                      value={editedStatus}
+                      onChange={(event) => setEditedStatus(event.target.value)}
+                      className="workspace-select appeal-status-select"
+                    >
+                      <option value="open">Открыто</option>
+                      <option value="in_review">На рассмотрении</option>
+                      <option value="resolved">Решено</option>
+                      <option value="closed">Закрыто</option>
+                    </select>
+                    <button type="button" onClick={handleSaveStatus} className="appeal-secondary-action" disabled={isSavingStatus}>
+                      {isSavingStatus ? "Сохранение..." : "Сохранить статус"}
+                    </button>
+                  </div>
+                ) : null}
               </div>
 
               <div className="appeal-detail-body">
-                <div className="appeal-detail-message">
-                  <p>{selectedAppeal.description}</p>
-                </div>
-
                 <div className="appeal-detail-facts">
                   <div className="workspace-meta-item">
                     {selectedAppeal.status === "resolved" ? (
@@ -207,46 +288,63 @@ export const Appeals = () => {
                   </div>
                   <div className="workspace-meta-item">
                     <Schedule sx={{ fontSize: 18 }} />
-                    <span>Дата регистрации: {selectedAppeal.date}</span>
+                    <span>Зарегистрировано: {formatDateTime(selectedAppeal.date)}</span>
                   </div>
                 </div>
+
+                {statusError ? <div className="workspace-empty">{statusError}</div> : null}
+                {statusSuccess ? <div className="workspace-success">{statusSuccess}</div> : null}
 
                 <div className="appeal-chat-section">
-                  <div className="appeal-chat-thread">
-                    {(messagesByAppeal[selectedAppeal.id] ?? []).map((message) => (
-                      <div
-                        key={message.id}
-                        className={`appeal-chat-message ${message.role === "support" ? "appeal-chat-message-outgoing" : "appeal-chat-message-incoming"}`}
-                      >
-                        <div className="appeal-chat-bubble">
-                          <div className="appeal-chat-message-meta">
-                            <span className="appeal-chat-author">{message.author}</span>
-                            <span className="appeal-chat-time">{message.time}</span>
+                  <div className="appeal-chat-thread" ref={chatThreadRef}>
+                    {(selectedAppeal.messages || []).map((message) => {
+                      const isOutgoing = Number(message.authorId) === currentUserId;
+
+                      return (
+                        <div
+                          key={message.id}
+                          className={`appeal-chat-message ${
+                            isOutgoing ? "appeal-chat-message-outgoing" : "appeal-chat-message-incoming"
+                          }`}
+                        >
+                          <div className="appeal-chat-bubble">
+                            <div className="appeal-chat-message-meta">
+                              <span className="appeal-chat-author">{message.authorName}</span>
+                              <span className="appeal-chat-time">{formatDateTime(message.createdAt)}</span>
+                            </div>
+                            <p>{message.text}</p>
                           </div>
-                          <p>{message.text}</p>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
-                  <div className="appeal-chat-composer">
-                    <input
-                      type="text"
-                      value={draftMessage}
-                      onChange={(event) => setDraftMessage(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          handleSendMessage();
-                        }
-                      }}
-                      placeholder="Введите ответ..."
-                      className="appeal-chat-input"
-                    />
-                    <button type="button" onClick={handleSendMessage} className="appeal-chat-send">
-                      <SendRounded sx={{ fontSize: 22 }} />
-                    </button>
-                  </div>
+                  {canReplyToAppeal ? (
+                    <div className="appeal-chat-composer-wrap">
+                      <textarea
+                        value={messageText}
+                        onChange={(event) => setMessageText(event.target.value)}
+                        placeholder="Введите сообщение по обращению"
+                        className="appeal-chat-input appeal-chat-input-multiline"
+                        disabled={selectedAppeal.status === "closed"}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSendMessage}
+                        className="appeal-chat-send"
+                        disabled={isSending || !messageText.trim() || selectedAppeal.status === "closed"}
+                        aria-label="Отправить сообщение"
+                      >
+                        <Send sx={{ fontSize: 20 }} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="appeal-chat-readonly">Только автор обращения и HR могут писать в этот чат.</div>
+                  )}
                 </div>
+
+                {messageError ? <div className="workspace-empty">{messageError}</div> : null}
+                {messageSuccess ? <div className="workspace-success">{messageSuccess}</div> : null}
               </div>
             </>
           ) : (
@@ -259,3 +357,5 @@ export const Appeals = () => {
     </div>
   );
 };
+
+export default Appeals;

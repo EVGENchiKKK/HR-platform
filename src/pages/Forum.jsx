@@ -1,17 +1,26 @@
+import { useOutletContext } from "react-router-dom";
 import { ForumOutlined, PushPin, RemoveRedEye, SmsOutlined } from "@mui/icons-material";
-import { forumPosts } from "../data/mockData";
 import "./../style/workspace-pages.css";
 
 export const Forum = () => {
+  const { workspaceData, workspaceLoading, workspaceError } = useOutletContext();
+  const forumPosts = workspaceData.forumPosts || [];
+
+  if (workspaceLoading) {
+    return <div className="workspace-page">Загрузка данных...</div>;
+  }
+
+  if (workspaceError) {
+    return <div className="workspace-page">{workspaceError}</div>;
+  }
+
   return (
     <div className="workspace-page">
       <section className="workspace-hero">
         <div>
           <span className="workspace-eyebrow">Внутреннее сообщество</span>
           <h2 className="workspace-title">Форум компании</h2>
-          <p className="workspace-description">
-            Дискуссии по рабочим процессам, инициативам и обмену опытом между отделами.
-          </p>
+          <p className="workspace-description">Дискуссии по рабочим процессам, инициативам и обмену опытом между отделами.</p>
         </div>
         <div className="workspace-metrics">
           <div className="workspace-metric">

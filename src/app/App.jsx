@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Auth } from '../pages/Auth';
 import { Dashboard } from '../pages/Dashboard';
+import { Profile } from '../pages/Profile';
 import { Employees } from '../pages/Employees';
 import { Analytics } from '../pages/Analytics';
 import { Departments } from '../pages/Departments';
@@ -43,6 +44,7 @@ export const App = () => {
           >
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
+            <Route path="profile" element={<Profile />} />
             <Route path="employees" element={<Employees />} />
             <Route path="analytics" element={<Analytics />} />
             <Route path="departments" element={<Departments />} />

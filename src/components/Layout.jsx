@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
     Dashboard,
@@ -20,10 +20,12 @@ import {
     Person,
 } from "@mui/icons-material";
 import { useAuth } from "../hooks/useAuth";
+import workspaceService from "../api/workspaceService";
 import "./../style/layout.css";
 
 const navItems = [
     { path: "/dashboard", icon: Dashboard, label: "Дашборд" },
+    { path: "/profile", icon: Person, label: "Личный кабинет" },
     { path: "/employees", icon: People, label: "Сотрудники" },
     { path: "/departments", icon: Business, label: "Отделы" },
     { path: "/analytics", icon: BarChart, label: "Аналитика KPI" },
@@ -45,13 +47,24 @@ export function Layout() {
     const [showNotif, setShowNotif] = useState(false);
     const [showProfile, setShowProfile] = useState(false);
     const { user, logout } = useAuth();
+    const [workspaceData, setWorkspaceData] = useState({
+        employees: [],
+        departments: [],
+        tasks: [],
+        appeals: [],
+        forumPosts: [],
+        courses: [],
+        surveys: [],
+    });
+    const [workspaceLoading, setWorkspaceLoading] = useState(true);
+    const [workspaceError, setWorkspaceError] = useState("");
     const location = useLocation();
     const navigate = useNavigate();
 
     const notifRef = useRef(null);
     const profileRef = useRef(null);
 
-    const currentPage = navItems.find(item =>
+    const currentPage = navItems.find((item) =>
         item.path === "/dashboard" ? location.pathname === "/dashboard" : location.pathname.startsWith(item.path)
     );
 
@@ -59,6 +72,24 @@ export function Layout() {
         await logout();
         navigate("/auth");
     };
+
+    const loadWorkspaceData = useCallback(async () => {
+        setWorkspaceLoading(true);
+        setWorkspaceError("");
+
+        try {
+            const response = await workspaceService.getWorkspaceData();
+            if (response.success) {
+                setWorkspaceData(response.data);
+            } else {
+                setWorkspaceError(response.error || "Не удалось загрузить данные");
+            }
+        } catch (error) {
+            setWorkspaceError(error.response?.data?.error || "Не удалось загрузить данные");
+        } finally {
+            setWorkspaceLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
         function handleClickOutside(event) {
@@ -73,6 +104,10 @@ export function Layout() {
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
+
+    useEffect(() => {
+        loadWorkspaceData();
+    }, [loadWorkspaceData]);
 
     const getUserInitials = () => {
         if (!user) return "П";
@@ -108,6 +143,7 @@ export function Layout() {
                     {navItems.map((item) => {
                         const Icon = item.icon;
                         const isActive = location.pathname.startsWith(item.path);
+
                         return (
                             <NavLink
                                 key={item.path}
@@ -155,7 +191,10 @@ export function Layout() {
 
                         <div className="notification-container" ref={notifRef}>
                             <button
-                                onClick={() => { setShowNotif(!showNotif); setShowProfile(false); }}
+                                onClick={() => {
+                                    setShowNotif(!showNotif);
+                                    setShowProfile(false);
+                                }}
                                 className="notification-btn"
                             >
                                 <Notifications sx={{ fontSize: 17 }} className="notification-icon" />
@@ -167,10 +206,13 @@ export function Layout() {
                                         <span className="dropdown-title">Уведомления</span>
                                         <span className="dropdown-action">Отметить все</span>
                                     </div>
-                                    {notifications.map(n => (
-                                        <div key={n.id} className={`dropdown-item ${n.unread ? "dropdown-item-unread" : ""}`}>
-                                            <p className="dropdown-text">{n.text}</p>
-                                            <p className="dropdown-time">{n.time}</p>
+                                    {notifications.map((notification) => (
+                                        <div
+                                            key={notification.id}
+                                            className={`dropdown-item ${notification.unread ? "dropdown-item-unread" : ""}`}
+                                        >
+                                            <p className="dropdown-text">{notification.text}</p>
+                                            <p className="dropdown-time">{notification.time}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -179,7 +221,10 @@ export function Layout() {
 
                         <div className="profile-container" ref={profileRef}>
                             <button
-                                onClick={() => { setShowProfile(!showProfile); setShowNotif(false); }}
+                                onClick={() => {
+                                    setShowProfile(!showProfile);
+                                    setShowNotif(false);
+                                }}
                                 className="profile-btn"
                             >
                                 <div className="profile-avatar">{getUserInitials()}</div>
@@ -192,7 +237,13 @@ export function Layout() {
                                         <p className="profile-dropdown-name">{getUserName()}</p>
                                         <p className="profile-dropdown-role">{getUserRole()}</p>
                                     </div>
-                                    <button className="dropdown-btn">
+                                    <button
+                                        className="dropdown-btn"
+                                        onClick={() => {
+                                            navigate("/profile");
+                                            setShowProfile(false);
+                                        }}
+                                    >
                                         <Person sx={{ fontSize: 15 }} /> Профиль
                                     </button>
                                     <button className="dropdown-btn">
@@ -208,7 +259,7 @@ export function Layout() {
                 </header>
 
                 <main className="page-content">
-                    <Outlet context={{ user }} />
+                    <Outlet context={{ user, workspaceData, workspaceLoading, workspaceError, refreshWorkspaceData: loadWorkspaceData }} />
                 </main>
             </div>
         </div>
