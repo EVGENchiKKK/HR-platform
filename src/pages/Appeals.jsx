@@ -17,6 +17,22 @@ const priorityLabels = {
   low: "Низкий",
 };
 
+const typeLabels = {
+  complaint: "Жалоба",
+  suggestion: "Предложение",
+  question: "Вопрос",
+};
+
+const initialAppealForm = {
+  recipientId: "",
+  type: "question",
+  category: "",
+  priority: "medium",
+  content: "",
+  isAnonymous: false,
+  isConfidential: false,
+};
+
 const formatDateTime = (value) => {
   if (!value) {
     return "Дата не указана";
@@ -42,18 +58,32 @@ export const Appeals = () => {
   const [selectedId, setSelectedId] = useState(null);
   const [editedStatus, setEditedStatus] = useState("open");
   const [messageText, setMessageText] = useState("");
+  const [appealForm, setAppealForm] = useState(initialAppealForm);
   const [isSending, setIsSending] = useState(false);
   const [isSavingStatus, setIsSavingStatus] = useState(false);
+  const [isCreatingAppeal, setIsCreatingAppeal] = useState(false);
   const [messageError, setMessageError] = useState("");
   const [messageSuccess, setMessageSuccess] = useState("");
   const [statusError, setStatusError] = useState("");
   const [statusSuccess, setStatusSuccess] = useState("");
+  const [createError, setCreateError] = useState("");
+  const [createSuccess, setCreateSuccess] = useState("");
   const chatThreadRef = useRef(null);
 
   const appeals = workspaceData.appeals || [];
+  const employees = workspaceData.employees || [];
   const currentUserId = Number(user?.id || user?.User_ID || 0);
   const currentUserRole = `${user?.role || user?.R_name || ""}`.toLowerCase();
   const canManageAppeals = ["hr", "admin"].includes(currentUserRole);
+
+  const recipients = useMemo(
+    () =>
+      employees.filter((employee) => {
+        const role = `${employee.role || employee.position || ""}`.toLowerCase();
+        return ["hr", "admin"].includes(role) && employee.status === "active";
+      }),
+    [employees]
+  );
 
   const filteredAppeals = useMemo(
     () =>
@@ -100,6 +130,52 @@ export const Appeals = () => {
     chatThreadRef.current.scrollTop = chatThreadRef.current.scrollHeight;
   }, [selectedAppeal]);
 
+  const handleAppealFormChange = (field) => (event) => {
+    const value = event.target.type === "checkbox" ? event.target.checked : event.target.value;
+    setAppealForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleCreateAppeal = async () => {
+    if (!appealForm.recipientId || !appealForm.category.trim() || !appealForm.content.trim()) {
+      setCreateError("Заполните получателя, тему и текст обращения.");
+      setCreateSuccess("");
+      return;
+    }
+
+    setIsCreatingAppeal(true);
+    setCreateError("");
+    setCreateSuccess("");
+
+    try {
+      const result = await workspaceService.createAppeal({
+        recipientId: Number(appealForm.recipientId),
+        type: appealForm.type,
+        category: appealForm.category,
+        priority: appealForm.priority,
+        content: appealForm.content,
+        isAnonymous: appealForm.isAnonymous,
+        isConfidential: appealForm.isConfidential,
+      });
+
+      if (!result.success) {
+        setCreateError(result.error || "Не удалось создать обращение.");
+        return;
+      }
+
+      setAppealForm(initialAppealForm);
+      setCreateSuccess("Обращение зарегистрировано.");
+      await refreshWorkspaceData();
+
+      if (result.data?.id) {
+        setSelectedId(Number(result.data.id));
+      }
+    } catch (error) {
+      setCreateError(error.response?.data?.error || "Не удалось создать обращение.");
+    } finally {
+      setIsCreatingAppeal(false);
+    }
+  };
+
   const handleSaveStatus = async () => {
     if (!selectedAppeal || !canManageAppeals) {
       return;
@@ -115,14 +191,14 @@ export const Appeals = () => {
       });
 
       if (!result.success) {
-        setStatusError(result.error || "Не удалось обновить статус обращения");
+        setStatusError(result.error || "Не удалось обновить статус обращения.");
         return;
       }
 
-      setStatusSuccess("Статус обращения обновлен");
+      setStatusSuccess("Статус обращения обновлён.");
       await refreshWorkspaceData();
     } catch (error) {
-      setStatusError(error.response?.data?.error || "Не удалось обновить статус обращения");
+      setStatusError(error.response?.data?.error || "Не удалось обновить статус обращения.");
     } finally {
       setIsSavingStatus(false);
     }
@@ -143,15 +219,15 @@ export const Appeals = () => {
       });
 
       if (!result.success) {
-        setMessageError(result.error || "Не удалось отправить сообщение");
+        setMessageError(result.error || "Не удалось отправить сообщение.");
         return;
       }
 
       setMessageText("");
-      setMessageSuccess("Сообщение отправлено");
+      setMessageSuccess("Сообщение отправлено.");
       await refreshWorkspaceData();
     } catch (error) {
-      setMessageError(error.response?.data?.error || "Не удалось отправить сообщение");
+      setMessageError(error.response?.data?.error || "Не удалось отправить сообщение.");
     } finally {
       setIsSending(false);
     }
@@ -172,8 +248,8 @@ export const Appeals = () => {
           <span className="workspace-eyebrow">Служба поддержки</span>
           <h2 className="workspace-title">Обращения сотрудников</h2>
           <p className="workspace-description">
-            Внутри каждого обращения теперь хранится полная переписка. HR может вести диалог, менять статус и видеть историю
-            сообщений как чат.
+            Создавайте обращения сразу с получателем, приоритетом, темой и полным текстом. Внутри каждого обращения
+            сохраняется переписка в формате чата.
           </p>
         </div>
         <div className="workspace-metrics">
@@ -187,8 +263,94 @@ export const Appeals = () => {
           </div>
           <div className="workspace-metric">
             <span className="workspace-metric-value">{appeals.filter((item) => item.priority === "high").length}</span>
-            <span className="workspace-metric-label">Высокий риск</span>
+            <span className="workspace-metric-label">Высокий приоритет</span>
           </div>
+        </div>
+      </section>
+
+      <section className="appeal-create-panel">
+        <div className="appeal-create-header">
+          <div>
+            <h3 className="appeals-list-title">Новое обращение</h3>
+            <p className="appeal-create-description">Все поля сохраняются в таблицу `appeal` в базе данных.</p>
+          </div>
+        </div>
+
+        <div className="appeal-form-grid">
+          <label className="appeal-form-field">
+            <span>Получатель</span>
+            <select
+              value={appealForm.recipientId}
+              onChange={handleAppealFormChange("recipientId")}
+              className="workspace-select"
+              disabled={recipients.length === 0}
+            >
+              <option value="">Выберите HR или администратора</option>
+              {recipients.map((recipient) => (
+                <option key={recipient.id} value={recipient.id}>
+                  {recipient.name} · {recipient.role}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="appeal-form-field">
+            <span>Тип обращения</span>
+            <select value={appealForm.type} onChange={handleAppealFormChange("type")} className="workspace-select">
+              <option value="question">Вопрос</option>
+              <option value="suggestion">Предложение</option>
+              <option value="complaint">Жалоба</option>
+            </select>
+          </label>
+
+          <label className="appeal-form-field">
+            <span>Приоритет</span>
+            <select value={appealForm.priority} onChange={handleAppealFormChange("priority")} className="workspace-select">
+              <option value="low">Низкий</option>
+              <option value="medium">Средний</option>
+              <option value="high">Высокий</option>
+            </select>
+          </label>
+
+          <label className="appeal-form-field appeal-form-field-wide">
+            <span>Тема обращения</span>
+            <input
+              type="text"
+              value={appealForm.category}
+              onChange={handleAppealFormChange("category")}
+              className="appeal-chat-input"
+              placeholder="Например: Переработки, отпуск, доступ к системе"
+            />
+          </label>
+
+          <label className="appeal-form-field appeal-form-field-wide">
+            <span>Текст обращения</span>
+            <textarea
+              value={appealForm.content}
+              onChange={handleAppealFormChange("content")}
+              className="appeal-chat-input appeal-chat-input-multiline"
+              placeholder="Опишите ситуацию подробно"
+            />
+          </label>
+        </div>
+
+        <div className="appeal-form-options">
+          <label className="appeal-option">
+            <input type="checkbox" checked={appealForm.isAnonymous} onChange={handleAppealFormChange("isAnonymous")} />
+            <span>Анонимное обращение</span>
+          </label>
+          <label className="appeal-option">
+            <input type="checkbox" checked={appealForm.isConfidential} onChange={handleAppealFormChange("isConfidential")} />
+            <span>Конфиденциальное обращение</span>
+          </label>
+        </div>
+
+        <div className="appeal-form-actions">
+          <button type="button" onClick={handleCreateAppeal} className="appeal-primary-action" disabled={isCreatingAppeal || recipients.length === 0}>
+            {isCreatingAppeal ? "Сохранение..." : "Отправить обращение"}
+          </button>
+          {createError ? <div className="workspace-empty">{createError}</div> : null}
+          {createSuccess ? <div className="workspace-success">{createSuccess}</div> : null}
         </div>
       </section>
 
@@ -228,7 +390,7 @@ export const Appeals = () => {
                 </div>
                 <div className="workspace-card-top">
                   <span className={`workspace-pill workspace-pill-${item.status}`}>{statusLabels[item.status]}</span>
-                  <span className="workspace-pill workspace-pill-neutral">{item.category}</span>
+                  <span className="workspace-pill workspace-pill-neutral">{typeLabels[item.type] || item.type}</span>
                 </div>
                 <div className="appeal-list-meta">
                   <span>{item.from}</span>
@@ -248,7 +410,7 @@ export const Appeals = () => {
                   <div className="workspace-card-top">
                     <span className={`workspace-pill workspace-pill-${selectedAppeal.status}`}>{statusLabels[selectedAppeal.status]}</span>
                     <span className={`workspace-pill workspace-pill-${selectedAppeal.priority}`}>{priorityLabels[selectedAppeal.priority]}</span>
-                    <span className="workspace-pill workspace-pill-neutral">{selectedAppeal.category}</span>
+                    <span className="workspace-pill workspace-pill-neutral">{typeLabels[selectedAppeal.type] || selectedAppeal.type}</span>
                   </div>
                   <p className="appeal-detail-meta">
                     От: {selectedAppeal.from} · {selectedAppeal.department} · {formatDateTime(selectedAppeal.date)}
@@ -284,11 +446,19 @@ export const Appeals = () => {
                     ) : (
                       <Campaign sx={{ fontSize: 18 }} />
                     )}
-                    <span>Тип обращения: {selectedAppeal.category}</span>
+                    <span>Тема: {selectedAppeal.category}</span>
+                  </div>
+                  <div className="workspace-meta-item">
+                    <Schedule sx={{ fontSize: 18 }} />
+                    <span>Получатель: {selectedAppeal.recipientName || "Не назначен"}</span>
                   </div>
                   <div className="workspace-meta-item">
                     <Schedule sx={{ fontSize: 18 }} />
                     <span>Зарегистрировано: {formatDateTime(selectedAppeal.date)}</span>
+                  </div>
+                  <div className="workspace-card-top">
+                    {selectedAppeal.isAnonymous ? <span className="workspace-pill workspace-pill-neutral">Анонимно</span> : null}
+                    {selectedAppeal.isConfidential ? <span className="workspace-pill workspace-pill-neutral">Конфиденциально</span> : null}
                   </div>
                 </div>
 

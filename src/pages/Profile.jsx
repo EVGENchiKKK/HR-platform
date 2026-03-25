@@ -68,6 +68,14 @@ const normalizeRole = (roleValue) => {
   return 'employee';
 };
 
+const clampPercent = (value) => {
+  const normalized = Number(value || 0);
+  if (!Number.isFinite(normalized)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(100, Math.round(normalized)));
+};
+
 export const Profile = () => {
   const { user, workspaceData, workspaceLoading, workspaceError } = useOutletContext();
   const profileKey = normalizeRole(user?.role || user?.R_name);
@@ -245,7 +253,9 @@ export const Profile = () => {
 
           <div className="profile-stack">
             {scopedCourses.slice(0, 2).map((course, index) => {
-              const progress = course.enrolled ? Math.round((course.completed / course.enrolled) * 100) : 0;
+              const progress = profileKey === 'employee'
+                ? clampPercent(course.myEnrollment?.progressPercent || 0)
+                : (course.enrolled ? clampPercent((course.completed / course.enrolled) * 100) : 0);
               return (
                 <div key={course.id} className="profile-list-card">
                   <div className="profile-list-top">

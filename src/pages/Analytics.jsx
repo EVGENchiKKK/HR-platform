@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, RadarChart, Radar, PolarGrid, PolarAngleAxis, Cell, LineChart, Line, Legend
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, RadarChart, Radar, PolarGrid, PolarAngleAxis, LineChart, Line, Legend,
 } from "recharts";
 import { TrendingUp, TrendingDown, Remove } from "@mui/icons-material";
 import "./../style/analytics.css";
@@ -12,13 +12,21 @@ function KPIBadge({ kpi }) {
   return <span className="kpi-badge kpi-badge-down"><TrendingDown sx={{ fontSize: 11 }} />{kpi}%</span>;
 }
 
+const clampPercent = (value) => {
+  const normalized = Number(value || 0);
+  if (!Number.isFinite(normalized)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(100, Math.round(normalized)));
+};
+
 const buildEmployeeRadar = (employee) => ([
-  { metric: "Задачи", value: Math.round(employee.taskCompletion || 0) },
-  { metric: "Обучение", value: Math.round(employee.courseProgress || 0) },
-  { metric: "KPI", value: Math.round(employee.kpi || 0) },
-  { metric: "Обращения", value: Math.min(100, employee.appealCount * 20) },
-  { metric: "Форум", value: Math.min(100, employee.forumTopics * 25) },
-  { metric: "Баллы", value: Math.min(100, employee.pointsBalance || 0) },
+  { metric: "Задачи", value: clampPercent(employee.taskCompletion) },
+  { metric: "Обучение", value: clampPercent(employee.moduleProgress || employee.courseProgress) },
+  { metric: "KPI", value: clampPercent(employee.kpi) },
+  { metric: "Опросы", value: clampPercent(employee.averageSurveyScore) },
+  { metric: "Активность", value: clampPercent(employee.activityScore) },
+  { metric: "Баллы", value: clampPercent(employee.pointsBalance) },
 ]);
 
 export const Analytics = () => {
@@ -30,27 +38,29 @@ export const Analytics = () => {
   const employees = workspaceData.employees || [];
   const departments = workspaceData.departments || [];
   const departmentMonthlyStats = workspaceData.departmentMonthlyStats || [];
-
-  const isEmployee = user?.role === "employee" || user?.R_name === "employee";
-  const userDepartment = user?.department || null;
-
-  const filteredEmps = useMemo(() => {
-    let result = employees;
-    if (isEmployee && userDepartment) {
-      result = result.filter((employee) => employee.department === userDepartment);
-    }
-    if (selectedDept !== "Все") {
-      result = result.filter((employee) => employee.department === selectedDept);
-    }
-    return result;
-  }, [employees, isEmployee, selectedDept, userDepartment]);
+  const currentRole = `${workspaceData.currentUserRole || user?.role || user?.R_name || ""}`.toLowerCase();
+  const isManager = ["hr", "admin"].includes(currentRole);
+  const currentUserId = Number(user?.id || user?.User_ID || 0);
+  const currentEmployee = employees.find((employee) => Number(employee.id) === currentUserId) || employees[0] || null;
 
   const filteredDepts = useMemo(() => {
-    if (isEmployee && userDepartment) {
-      return departments.filter((department) => department.name === userDepartment);
+    if (!isManager) {
+      return departments.slice(0, 1);
     }
     return departments;
-  }, [departments, isEmployee, userDepartment]);
+  }, [departments, isManager]);
+
+  const filteredEmps = useMemo(() => {
+    if (!isManager) {
+      return currentEmployee ? [currentEmployee] : [];
+    }
+
+    if (selectedDept === "Все") {
+      return employees;
+    }
+
+    return employees.filter((employee) => employee.department === selectedDept);
+  }, [currentEmployee, employees, isManager, selectedDept]);
 
   const selectedEmp = filteredEmps.find((employee) => employee.id === selectedEmpId) ?? filteredEmps[0] ?? null;
   const avgKPI = filteredEmps.length ? Math.round(filteredEmps.reduce((sum, employee) => sum + employee.kpi, 0) / filteredEmps.length) : 0;
@@ -65,16 +75,18 @@ export const Analytics = () => {
 
   return (
     <div className="analytics-page">
-      <div className="view-toggle">
-        <button onClick={() => setView("departments")} className={`toggle-btn ${view === "departments" ? "toggle-btn-active" : ""}`}>По отделам</button>
-        <button onClick={() => setView("employees")} className={`toggle-btn ${view === "employees" ? "toggle-btn-active" : ""}`}>По сотрудникам</button>
-      </div>
+      {isManager ? (
+        <div className="view-toggle">
+          <button onClick={() => setView("departments")} className={`toggle-btn ${view === "departments" ? "toggle-btn-active" : ""}`}>По отделам</button>
+          <button onClick={() => setView("employees")} className={`toggle-btn ${view === "employees" ? "toggle-btn-active" : ""}`}>По сотрудникам</button>
+        </div>
+      ) : null}
 
-      {view === "departments" ? (
+      {(!isManager || view === "departments") ? (
         <div className="departments-view">
           <div className="chart-card-full">
-            <h3 className="chart-title">Активность отделов по месяцам</h3>
-            <p className="chart-subtitle">Последние 6 месяцев</p>
+            <h3 className="chart-title">{isManager ? "Активность отделов по месяцам" : "Активность моего отдела"}</h3>
+            <p className="chart-subtitle">Только актуальные данные, доступные текущему пользователю</p>
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={departmentMonthlyStats}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -128,7 +140,7 @@ export const Analytics = () => {
           <div className="employees-filters">
             <select value={selectedDept} onChange={(event) => setSelectedDept(event.target.value)} className="filter-select">
               <option>Все</option>
-              {filteredDepts.map((department) => <option key={department.id}>{department.name}</option>)}
+              {departments.map((department) => <option key={department.id}>{department.name}</option>)}
             </select>
             <div className="avg-kpi-badge">
               Средний KPI: <span className="avg-kpi-value">{avgKPI}%</span>
@@ -158,7 +170,7 @@ export const Analytics = () => {
               </div>
             </div>
 
-            {selectedEmp && (
+            {selectedEmp ? (
               <div className="employee-detail-section">
                 <div className="employee-detail-card">
                   <div className="employee-detail-header">
@@ -171,9 +183,9 @@ export const Analytics = () => {
                   </div>
                   <div className="employee-metrics-grid">
                     {[
-                      { label: "KPI общий", value: `${selectedEmp.kpi}%`, color: "indigo" },
+                      { label: "KPI", value: `${clampPercent(selectedEmp.kpi)}%`, color: "indigo" },
                       { label: "Задачи", value: `${selectedEmp.completedTasks}/${selectedEmp.totalTasks}`, color: "emerald" },
-                      { label: "Курсы", value: `${selectedEmp.completedCourses}`, color: "violet" },
+                      { label: "Модули", value: `${selectedEmp.completedModules}/${selectedEmp.totalModules || 0}`, color: "violet" },
                     ].map((metric) => (
                       <div key={metric.label} className={`metric-card metric-${metric.color}`}>
                         <div className={`metric-value metric-value-${metric.color}`}>{metric.value}</div>
@@ -195,10 +207,12 @@ export const Analytics = () => {
                   </ResponsiveContainer>
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       )}
     </div>
   );
 };
+
+export default Analytics;

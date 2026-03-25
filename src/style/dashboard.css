@@ -125,6 +125,35 @@
   font-weight: 500;
 }
 
+.dashboard-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.dashboard-progress-track {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.dashboard-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #4f46e5 0%, #22c55e 100%);
+}
+
+.dashboard-progress-label {
+  min-width: 42px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+}
+
 .change-up { color: #059669; }
 .change-down { color: #ef4444; }
 
