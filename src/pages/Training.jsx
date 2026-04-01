@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { AutoStories, CheckCircleOutline, Groups, PlayCircleOutline, School } from "@mui/icons-material";
 import workspaceService from "../api/workspaceService";
+import getRoleLabel from "../utils/roleLabels";
 import "./../style/workspace-pages.css";
 
 const formatDate = (value) => {
@@ -343,7 +344,7 @@ export const Training = () => {
                                 {participant.isCompleted ? "Завершен" : `${participant.progressPercent}%`}
                               </span>
                             </div>
-                            <p>{participant.department || "Без отдела"} · {participant.role || "employee"}</p>
+                            <p>{participant.department || "Без отдела"} · {getRoleLabel(participant.role)}</p>
                             <div className="workspace-progress">
                               <div className="workspace-progress-track">
                                 <div className="workspace-progress-fill" style={{ width: `${participant.progressPercent}%` }} />

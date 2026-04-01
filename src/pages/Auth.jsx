@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './../hooks/useAuth';
 import authService from './../api/authService';
+import getRoleLabel from './../utils/roleLabels';
 import './../style/auth.css';
 
 const MailIcon = () => (
@@ -484,7 +485,7 @@ export const Auth = () => {
                       <option value="">Выберите роль</option>
                       {roles.map((role) => (
                         <option key={role.id} value={role.id}>
-                          {role.name}
+                          {getRoleLabel(role.name)}
                         </option>
                       ))}
                     </select>

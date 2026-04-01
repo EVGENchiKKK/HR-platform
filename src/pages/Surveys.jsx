@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { AssignmentTurnedIn, Groups, Poll, Quiz, TaskAlt } from "@mui/icons-material";
 import workspaceService from "../api/workspaceService";
+import getRoleLabel from "../utils/roleLabels";
 import "./../style/workspace-pages.css";
 
 const typeLabels = {
@@ -50,13 +51,23 @@ export const Surveys = () => {
   const [typeFilter, setTypeFilter] = useState("all");
   const [selectedSurveyId, setSelectedSurveyId] = useState(null);
   const [answers, setAnswers] = useState({});
+  const [testForm, setTestForm] = useState({
+    title: "",
+    description: "",
+    departmentId: "",
+    endDate: "",
+    questions: [{ text: "", options: ["", ""], correct: "0", points: 1 }]
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCreatingTest, setIsCreatingTest] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [submitSuccess, setSubmitSuccess] = useState("");
+  const [showCreateTestModal, setShowCreateTestModal] = useState(false);
 
   const currentRole = `${workspaceData.currentUserRole || user?.role || user?.R_name || ""}`.toLowerCase();
   const canViewPeopleInsights = ["hr", "admin"].includes(currentRole);
   const userDepartment = user?.departmentId || user?.Department_ID || null;
+  const departments = workspaceData.departments || [];
 
   const surveys = useMemo(
     () => (workspaceData.surveys || []).filter((survey) => {
@@ -129,6 +140,75 @@ export const Surveys = () => {
     }));
   };
 
+  const handleTestFieldChange = (field) => (event) => {
+    setTestForm((current) => ({ ...current, [field]: event.target.value }));
+  };
+
+  const handleQuestionChange = (index, field, value) => {
+    setTestForm((current) => ({
+      ...current,
+      questions: current.questions.map((question, questionIndex) => (
+        questionIndex === index ? { ...question, [field]: value } : question
+      ))
+    }));
+  };
+
+  const handleOptionChange = (questionIndex, optionIndex, value) => {
+    setTestForm((current) => ({
+      ...current,
+      questions: current.questions.map((question, currentIndex) => (
+        currentIndex === questionIndex
+          ? {
+              ...question,
+              options: question.options.map((option, currentOptionIndex) => (
+                currentOptionIndex === optionIndex ? value : option
+              ))
+            }
+          : question
+      ))
+    }));
+  };
+
+  const handleAddQuestion = () => {
+    setTestForm((current) => ({
+      ...current,
+      questions: [...current.questions, { text: "", options: ["", ""], correct: "0", points: 1 }]
+    }));
+  };
+
+  const handleCreateTest = async () => {
+    setIsCreatingTest(true);
+    setSubmitError("");
+    setSubmitSuccess("");
+
+    try {
+      const result = await workspaceService.createTest({
+        ...testForm,
+        departmentId: testForm.departmentId ? Number(testForm.departmentId) : null
+      });
+
+      if (!result.success) {
+        setSubmitError(result.error || "Не удалось создать тест.");
+        return;
+      }
+
+      setTestForm({
+        title: "",
+        description: "",
+        departmentId: "",
+        endDate: "",
+        questions: [{ text: "", options: ["", ""], correct: "0", points: 1 }]
+      });
+      setSubmitSuccess("Тест создан.");
+      await refreshWorkspaceData();
+      setShowCreateTestModal(false);
+    } catch (error) {
+      setSubmitError(error.response?.data?.error || "Не удалось создать тест.");
+    } finally {
+      setIsCreatingTest(false);
+    }
+  };
+
   const handleSubmitSurvey = async () => {
     if (!selectedSurvey) {
       return;
@@ -165,6 +245,58 @@ export const Surveys = () => {
 
   return (
     <div className="workspace-page">
+      {canViewPeopleInsights ? (
+        <section className="workspace-toolbar">
+          <button type="button" className="appeal-primary-action" onClick={() => setShowCreateTestModal(true)}>
+            Создать тест
+          </button>
+        </section>
+      ) : null}
+
+      {showCreateTestModal ? (
+        <div className="modal-overlay" onClick={() => setShowCreateTestModal(false)}>
+          <div className="modal-card modal-card-wide" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3 className="appeals-list-title">Новый тест</h3>
+                <p className="appeal-create-description">Создадим тест и сразу опубликуем его в системе.</p>
+              </div>
+              <button type="button" className="modal-close" onClick={() => setShowCreateTestModal(false)}>×</button>
+            </div>
+            <div className="appeal-form-grid">
+              <label className="appeal-form-field appeal-form-field-wide"><span>Название</span><input type="text" value={testForm.title} onChange={handleTestFieldChange("title")} className="appeal-chat-input" /></label>
+              <label className="appeal-form-field appeal-form-field-wide"><span>Описание</span><textarea value={testForm.description} onChange={handleTestFieldChange("description")} className="appeal-chat-input appeal-chat-input-multiline" /></label>
+              <label className="appeal-form-field"><span>Отдел</span><select value={testForm.departmentId} onChange={handleTestFieldChange("departmentId")} className="workspace-select"><option value="">Для всех</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select></label>
+              <label className="appeal-form-field"><span>Срок</span><input type="datetime-local" value={testForm.endDate} onChange={handleTestFieldChange("endDate")} className="appeal-chat-input" /></label>
+            </div>
+            <div className="survey-question-list">
+              {testForm.questions.map((question, questionIndex) => (
+                <article key={`builder-${questionIndex}`} className="survey-question-card">
+                  <div className="survey-question-header">
+                    <span className="workspace-pill workspace-pill-neutral">Вопрос {questionIndex + 1}</span>
+                  </div>
+                  <input type="text" value={question.text} onChange={(event) => handleQuestionChange(questionIndex, "text", event.target.value)} className="appeal-chat-input" placeholder="Текст вопроса" />
+                  <div className="appeal-form-grid">
+                    {question.options.map((option, optionIndex) => (
+                      <label key={`option-${questionIndex}-${optionIndex}`} className="appeal-form-field">
+                        <span>Вариант {optionIndex + 1}</span>
+                        <input type="text" value={option} onChange={(event) => handleOptionChange(questionIndex, optionIndex, event.target.value)} className="appeal-chat-input" />
+                      </label>
+                    ))}
+                    <label className="appeal-form-field"><span>Правильный вариант</span><select value={question.correct} onChange={(event) => handleQuestionChange(questionIndex, "correct", event.target.value)} className="workspace-select">{question.options.map((_, optionIndex) => <option key={`correct-${questionIndex}-${optionIndex}`} value={String(optionIndex)}>{optionIndex + 1}</option>)}</select></label>
+                    <label className="appeal-form-field"><span>Баллы</span><input type="number" min="1" value={question.points} onChange={(event) => handleQuestionChange(questionIndex, "points", event.target.value)} className="appeal-chat-input" /></label>
+                  </div>
+                </article>
+              ))}
+            </div>
+            <div className="appeal-form-actions">
+              <button type="button" className="appeal-secondary-action" onClick={handleAddQuestion}>Добавить вопрос</button>
+              <button type="button" className="appeal-primary-action" onClick={handleCreateTest} disabled={isCreatingTest}>{isCreatingTest ? "Сохранение..." : "Создать тест"}</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <section className="workspace-hero">
         <div>
           <span className="workspace-eyebrow">Обратная связь</span>
@@ -355,7 +487,7 @@ export const Surveys = () => {
                               <strong>{submission.employeeName}</strong>
                               <span className="workspace-pill workspace-pill-active">{submission.score}%</span>
                             </div>
-                            <p>{submission.department || "Без отдела"} · {submission.role || "employee"}</p>
+                            <p>{submission.department || "Без отдела"} · {getRoleLabel(submission.role)}</p>
                             <div className="employee-inline-meta">
                               <span>{submission.isCompleted ? "Пройден" : "Не завершён"}</span>
                               <span>{submission.submittedAt || submission.startedAt || "Без даты"}</span>

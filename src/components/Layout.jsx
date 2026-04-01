@@ -21,6 +21,7 @@ import {
 } from "@mui/icons-material";
 import { useAuth } from "../hooks/useAuth";
 import workspaceService from "../api/workspaceService";
+import getRoleLabel from "../utils/roleLabels";
 import "./../style/layout.css";
 
 const navItems = [
@@ -36,12 +37,6 @@ const navItems = [
     { path: "/forum", icon: Tag, label: "Форум" },
 ];
 
-const notifications = [
-    { id: 1, text: "Новое обращение от Сергея Морозова", time: "5 мин назад", unread: true },
-    { id: 2, text: "Тест по ТБ: 34 из 42 ответили", time: "1 час назад", unread: true },
-    { id: 3, text: "Задача №4 просрочена", time: "3 часа назад", unread: false },
-];
-
 export function Layout() {
     const [collapsed, setCollapsed] = useState(false);
     const [showNotif, setShowNotif] = useState(false);
@@ -55,6 +50,7 @@ export function Layout() {
         forumPosts: [],
         courses: [],
         surveys: [],
+        notifications: [],
     });
     const [workspaceLoading, setWorkspaceLoading] = useState(true);
     const [workspaceError, setWorkspaceError] = useState("");
@@ -67,6 +63,8 @@ export function Layout() {
     const currentPage = navItems.find((item) =>
         item.path === "/dashboard" ? location.pathname === "/dashboard" : location.pathname.startsWith(item.path)
     );
+    const notifications = workspaceData.notifications || [];
+    const unreadNotifications = notifications.filter((notification) => notification.unread).length;
 
     const handleLogout = async () => {
         await logout();
@@ -123,7 +121,7 @@ export function Layout() {
 
     const getUserRole = () => {
         if (!user) return "Сотрудник";
-        return user.role || user.R_name || "Сотрудник";
+        return getRoleLabel(user.role || user.R_name);
     };
 
     return (
@@ -191,30 +189,49 @@ export function Layout() {
 
                         <div className="notification-container" ref={notifRef}>
                             <button
-                                onClick={() => {
-                                    setShowNotif(!showNotif);
+                                onClick={async () => {
+                                    const nextState = !showNotif;
+                                    setShowNotif(nextState);
                                     setShowProfile(false);
+                                    if (nextState && unreadNotifications > 0) {
+                                        try {
+                                            await workspaceService.markNotificationsRead();
+                                            await loadWorkspaceData();
+                                        } catch (error) {
+                                        }
+                                    }
                                 }}
                                 className="notification-btn"
                             >
                                 <Notifications sx={{ fontSize: 17 }} className="notification-icon" />
-                                <span className="notification-badge"></span>
+                                {unreadNotifications > 0 ? <span className="notification-badge"></span> : null}
                             </button>
                             {showNotif && (
                                 <div className="dropdown-menu notification-dropdown">
                                     <div className="dropdown-header">
                                         <span className="dropdown-title">Уведомления</span>
-                                        <span className="dropdown-action">Отметить все</span>
+                                        <span className="dropdown-action">{unreadNotifications ? `${unreadNotifications} новых` : "Все прочитаны"}</span>
                                     </div>
-                                    {notifications.map((notification) => (
+                                    {notifications.length > 0 ? notifications.map((notification) => (
                                         <div
                                             key={notification.id}
                                             className={`dropdown-item ${notification.unread ? "dropdown-item-unread" : ""}`}
+                                            onClick={() => {
+                                                if (notification.link) {
+                                                    navigate(notification.link);
+                                                    setShowNotif(false);
+                                                }
+                                            }}
                                         >
+                                            <p className="dropdown-text">{notification.title}</p>
                                             <p className="dropdown-text">{notification.text}</p>
                                             <p className="dropdown-time">{notification.time}</p>
                                         </div>
-                                    ))}
+                                    )) : (
+                                        <div className="dropdown-item">
+                                            <p className="dropdown-text">Пока нет новых уведомлений</p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

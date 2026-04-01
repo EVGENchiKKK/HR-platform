@@ -4,6 +4,8 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, RadarChart, Radar, PolarGrid, PolarAngleAxis, LineChart, Line, Legend,
 } from "recharts";
 import { TrendingUp, TrendingDown, Remove } from "@mui/icons-material";
+import getRoleLabel from "../utils/roleLabels";
+import ReportExportPanel from "../components/ReportExportPanel";
 import "./../style/analytics.css";
 
 function KPIBadge({ kpi }) {
@@ -75,6 +77,13 @@ export const Analytics = () => {
 
   return (
     <div className="analytics-page">
+      <ReportExportPanel
+        workspaceData={workspaceData}
+        user={user}
+        title="Экспорт отчетов по аналитике"
+        scopeTitle="Аналитика HR-платформы"
+      />
+
       {isManager ? (
         <div className="view-toggle">
           <button onClick={() => setView("departments")} className={`toggle-btn ${view === "departments" ? "toggle-btn-active" : ""}`}>По отделам</button>
@@ -162,7 +171,7 @@ export const Analytics = () => {
                     <div className="employee-avatar-list">{employee.avatar}</div>
                     <div className="employee-info-list">
                       <p className="employee-name-list">{employee.name}</p>
-                      <p className="employee-position-list">{employee.position}</p>
+                      <p className="employee-position-list">{getRoleLabel(employee.position)}</p>
                     </div>
                     <KPIBadge kpi={employee.kpi} />
                   </button>
@@ -177,7 +186,7 @@ export const Analytics = () => {
                     <div className="employee-avatar-large">{selectedEmp.avatar}</div>
                     <div>
                       <h3 className="employee-detail-name">{selectedEmp.name}</h3>
-                      <p className="employee-detail-position">{selectedEmp.position} · {selectedEmp.department}</p>
+                      <p className="employee-detail-position">{getRoleLabel(selectedEmp.position)} · {selectedEmp.department}</p>
                       <KPIBadge kpi={selectedEmp.kpi} />
                     </div>
                   </div>

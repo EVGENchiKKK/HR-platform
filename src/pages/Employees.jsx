@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { Search, Email, Phone, School, Poll, WorkOutline } from "@mui/icons-material";
+import workspaceService from "../api/workspaceService";
+import authService from "../api/authService";
+import getRoleLabel from "../utils/roleLabels";
+import "./../style/workspace-pages.css";
 import "./../style/employees.css";
 
 const statusConfig = {
@@ -28,11 +32,20 @@ const formatDate = (value) => {
 };
 
 export const Employees = () => {
-  const { user, workspaceData, workspaceLoading, workspaceError } = useOutletContext();
+  const { user, workspaceData, workspaceLoading, workspaceError, refreshWorkspaceData } = useOutletContext();
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("Все");
   const [statusFilter, setStatusFilter] = useState("Все");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(null);
+  const [registerMeta, setRegisterMeta] = useState({ roles: [], departments: [] });
+  const [employeeForm, setEmployeeForm] = useState({
+    login: "", firstName: "", lastName: "", middleName: "", email: "", phone: "",
+    hireDate: "", roleId: "", departmentId: "", password: ""
+  });
+  const [employeeError, setEmployeeError] = useState("");
+  const [employeeSuccess, setEmployeeSuccess] = useState("");
+  const [isCreatingEmployee, setIsCreatingEmployee] = useState(false);
+  const [showCreateEmployeeModal, setShowCreateEmployeeModal] = useState(false);
 
   const employees = workspaceData.employees || [];
   const departments = workspaceData.departments || [];
@@ -40,6 +53,8 @@ export const Employees = () => {
   const surveys = workspaceData.surveys || [];
 
   const isEmployee = user?.role === "employee" || user?.R_name === "employee";
+  const currentRole = `${workspaceData.currentUserRole || user?.role || user?.R_name || ""}`.toLowerCase();
+  const canManageEmployees = ["hr", "admin"].includes(currentRole);
   const userDepartment = user?.department || null;
 
   const availableEmployees = useMemo(() => {
@@ -65,6 +80,20 @@ export const Employees = () => {
     ?? filteredEmployees[0]
     ?? availableEmployees[0]
     ?? null;
+
+  useEffect(() => {
+    if (!canManageEmployees) {
+      return;
+    }
+
+    authService.getRegisterMeta()
+      .then((response) => {
+        if (response.success) {
+          setRegisterMeta(response.data);
+        }
+      })
+      .catch(() => {});
+  }, [canManageEmployees]);
 
   useEffect(() => {
     if (!selectedEmployee) {
@@ -114,6 +143,48 @@ export const Employees = () => {
     });
   }, [selectedEmployee, surveys]);
 
+  const handleEmployeeChange = (field) => (event) => {
+    setEmployeeForm((current) => ({ ...current, [field]: event.target.value }));
+  };
+
+  const handleCreateEmployee = async () => {
+    if (!employeeForm.login || !employeeForm.firstName || !employeeForm.lastName || !employeeForm.email || !employeeForm.password || !employeeForm.roleId || !employeeForm.departmentId || !employeeForm.hireDate) {
+      setEmployeeError("Заполните обязательные поля сотрудника.");
+      setEmployeeSuccess("");
+      return;
+    }
+
+    setIsCreatingEmployee(true);
+    setEmployeeError("");
+    setEmployeeSuccess("");
+
+    try {
+      const result = await workspaceService.createEmployee({
+        ...employeeForm,
+        roleId: Number(employeeForm.roleId),
+        departmentId: Number(employeeForm.departmentId)
+      });
+
+      if (!result.success) {
+        setEmployeeError(result.error || "Не удалось создать сотрудника.");
+        return;
+      }
+
+      setEmployeeForm({
+        login: "", firstName: "", lastName: "", middleName: "", email: "", phone: "",
+        hireDate: "", roleId: "", departmentId: "", password: ""
+      });
+      setEmployeeSuccess("Сотрудник создан.");
+      await refreshWorkspaceData();
+      setShowCreateEmployeeModal(false);
+    } catch (error) {
+      const details = error.response?.data?.details;
+      setEmployeeError((Array.isArray(details) ? details.join(" ") : "") || error.response?.data?.error || "Не удалось создать сотрудника.");
+    } finally {
+      setIsCreatingEmployee(false);
+    }
+  };
+
   if (workspaceLoading) {
     return <div className="employees-page">Загрузка данных...</div>;
   }
@@ -124,6 +195,45 @@ export const Employees = () => {
 
   return (
     <div className="employees-page">
+      {canManageEmployees ? (
+        <section className="workspace-toolbar">
+          <button type="button" className="appeal-primary-action" onClick={() => setShowCreateEmployeeModal(true)}>
+            Добавить сотрудника
+          </button>
+          {employeeSuccess ? <div className="workspace-success">{employeeSuccess}</div> : null}
+        </section>
+      ) : null}
+
+      {showCreateEmployeeModal ? (
+        <div className="modal-overlay" onClick={() => setShowCreateEmployeeModal(false)}>
+          <div className="modal-card modal-card-wide" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3 className="appeals-list-title">Новый сотрудник</h3>
+                <p className="appeal-create-description">Запись создаётся сразу в базе данных.</p>
+              </div>
+              <button type="button" className="modal-close" onClick={() => setShowCreateEmployeeModal(false)}>×</button>
+            </div>
+            <div className="appeal-form-grid">
+              <label className="appeal-form-field"><span>Логин</span><input type="text" value={employeeForm.login} onChange={handleEmployeeChange("login")} className="appeal-chat-input" /></label>
+              <label className="appeal-form-field"><span>Имя</span><input type="text" value={employeeForm.firstName} onChange={handleEmployeeChange("firstName")} className="appeal-chat-input" /></label>
+              <label className="appeal-form-field"><span>Фамилия</span><input type="text" value={employeeForm.lastName} onChange={handleEmployeeChange("lastName")} className="appeal-chat-input" /></label>
+              <label className="appeal-form-field"><span>Отчество</span><input type="text" value={employeeForm.middleName} onChange={handleEmployeeChange("middleName")} className="appeal-chat-input" /></label>
+              <label className="appeal-form-field"><span>Email</span><input type="email" value={employeeForm.email} onChange={handleEmployeeChange("email")} className="appeal-chat-input" /></label>
+              <label className="appeal-form-field"><span>Телефон</span><input type="text" value={employeeForm.phone} onChange={handleEmployeeChange("phone")} className="appeal-chat-input" /></label>
+              <label className="appeal-form-field"><span>Дата найма</span><input type="date" value={employeeForm.hireDate} onChange={handleEmployeeChange("hireDate")} className="appeal-chat-input" /></label>
+              <label className="appeal-form-field"><span>Роль</span><select value={employeeForm.roleId} onChange={handleEmployeeChange("roleId")} className="workspace-select"><option value="">Выберите роль</option>{registerMeta.roles.map((role) => <option key={role.id} value={role.id}>{getRoleLabel(role.name)}</option>)}</select></label>
+              <label className="appeal-form-field"><span>Отдел</span><select value={employeeForm.departmentId} onChange={handleEmployeeChange("departmentId")} className="workspace-select"><option value="">Выберите отдел</option>{registerMeta.departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select></label>
+              <label className="appeal-form-field"><span>Пароль</span><input type="password" value={employeeForm.password} onChange={handleEmployeeChange("password")} className="appeal-chat-input" /></label>
+            </div>
+            <div className="appeal-form-actions">
+              <button type="button" className="appeal-primary-action" onClick={handleCreateEmployee} disabled={isCreatingEmployee}>{isCreatingEmployee ? "Сохранение..." : "Создать сотрудника"}</button>
+              {employeeError ? <div className="workspace-empty">{employeeError}</div> : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="employees-header">
         <div className="search-box">
           <Search sx={{ fontSize: 15 }} className="search-icon" />
@@ -185,7 +295,7 @@ export const Employees = () => {
                       </div>
                     </td>
                     <td className="table-cell">{employee.department}</td>
-                    <td className="table-cell">{employee.position}</td>
+                    <td className="table-cell">{getRoleLabel(employee.position)}</td>
                     <td className="table-cell">
                       <div className="kpi-cell">
                         <div className="kpi-bar-container">
@@ -226,7 +336,7 @@ export const Employees = () => {
             <div className="employee-detail-copy">
               <h2>{selectedEmployee.name}</h2>
               <div className="employee-detail-tags">
-                <span className="detail-tag">{selectedEmployee.position}</span>
+                <span className="detail-tag">{getRoleLabel(selectedEmployee.position)}</span>
                 <span className="detail-tag">{selectedEmployee.department}</span>
                 <span className="detail-tag">{statusConfig[selectedEmployee.status]?.label || "Активен"}</span>
               </div>
@@ -312,7 +422,7 @@ export const Employees = () => {
               <div className="employee-detail-item">
                 <div className="employee-inline-meta employee-inline-meta-grid">
                   <span>Отдел: {selectedEmployee.department}</span>
-                  <span>Роль: {selectedEmployee.position}</span>
+                  <span>Роль: {getRoleLabel(selectedEmployee.position)}</span>
                   <span>Обращения: {selectedEmployee.appealCount}</span>
                   <span>Темы форума: {selectedEmployee.forumTopics}</span>
                   <span>KPI по задачам: {selectedEmployee.taskCompletion}%</span>

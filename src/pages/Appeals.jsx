@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { Campaign, ErrorOutline, MarkEmailRead, Schedule, Send } from "@mui/icons-material";
 import workspaceService from "../api/workspaceService";
+import getRoleLabel from "../utils/roleLabels";
 import "./../style/workspace-pages.css";
 
 const statusLabels = {
@@ -71,18 +72,14 @@ export const Appeals = () => {
   const chatThreadRef = useRef(null);
 
   const appeals = workspaceData.appeals || [];
-  const employees = workspaceData.employees || [];
+  const appealRecipients = workspaceData.appealRecipients || [];
   const currentUserId = Number(user?.id || user?.User_ID || 0);
   const currentUserRole = `${user?.role || user?.R_name || ""}`.toLowerCase();
   const canManageAppeals = ["hr", "admin"].includes(currentUserRole);
 
   const recipients = useMemo(
-    () =>
-      employees.filter((employee) => {
-        const role = `${employee.role || employee.position || ""}`.toLowerCase();
-        return ["hr", "admin"].includes(role) && employee.status === "active";
-      }),
-    [employees]
+    () => appealRecipients,
+    [appealRecipients]
   );
 
   const filteredAppeals = useMemo(
@@ -272,7 +269,6 @@ export const Appeals = () => {
         <div className="appeal-create-header">
           <div>
             <h3 className="appeals-list-title">Новое обращение</h3>
-            <p className="appeal-create-description">Все поля сохраняются в таблицу `appeal` в базе данных.</p>
           </div>
         </div>
 
@@ -283,12 +279,11 @@ export const Appeals = () => {
               value={appealForm.recipientId}
               onChange={handleAppealFormChange("recipientId")}
               className="workspace-select"
-              disabled={recipients.length === 0}
             >
               <option value="">Выберите HR или администратора</option>
               {recipients.map((recipient) => (
                 <option key={recipient.id} value={recipient.id}>
-                  {recipient.name} · {recipient.role}
+                  {recipient.name} · {getRoleLabel(recipient.role)}
                 </option>
               ))}
             </select>
@@ -473,9 +468,8 @@ export const Appeals = () => {
                       return (
                         <div
                           key={message.id}
-                          className={`appeal-chat-message ${
-                            isOutgoing ? "appeal-chat-message-outgoing" : "appeal-chat-message-incoming"
-                          }`}
+                          className={`appeal-chat-message ${isOutgoing ? "appeal-chat-message-outgoing" : "appeal-chat-message-incoming"
+                            }`}
                         >
                           <div className="appeal-chat-bubble">
                             <div className="appeal-chat-message-meta">

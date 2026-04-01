@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { ForumOutlined, PushPin, RemoveRedEye, Send, SmsOutlined } from "@mui/icons-material";
 import workspaceService from "../api/workspaceService";
+import getRoleLabel from "../utils/roleLabels";
 import "./../style/workspace-pages.css";
 
 const initialTopicForm = {
@@ -295,7 +296,7 @@ export const Forum = () => {
                             </div>
                             <p>{message.content}</p>
                             <div className="workspace-card-top forum-message-meta">
-                              <span className="workspace-pill workspace-pill-neutral">{message.authorRole}</span>
+                              <span className="workspace-pill workspace-pill-neutral">{getRoleLabel(message.authorRole)}</span>
                               {message.isSolution ? <span className="workspace-pill workspace-pill-active">Решение</span> : null}
                             </div>
                           </div>

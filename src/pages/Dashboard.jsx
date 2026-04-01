@@ -13,6 +13,8 @@ import {
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, Legend,
 } from "recharts";
+import getRoleLabel from "../utils/roleLabels";
+import ReportExportPanel from "../components/ReportExportPanel";
 import "./../style/dashboard.css";
 
 const statusConfig = {
@@ -183,6 +185,13 @@ export const Dashboard = () => {
 
   return (
     <div className="dashboard">
+      <ReportExportPanel
+        workspaceData={workspaceData}
+        user={user}
+        title="Экспорт аналитики и метрик"
+        scopeTitle="Дашборд HR-платформы"
+      />
+
       <div className="welcome-banner">
         <div className="welcome-content">
           <h1 className="welcome-title">Добро пожаловать, {getUserName()}!</h1>
@@ -322,7 +331,7 @@ export const Dashboard = () => {
                   <div className="employee-avatar">{employee.avatar}</div>
                   <div className="employee-info">
                     <p className="employee-name">{employee.name}</p>
-                    <p className="employee-department">{employee.department} · {employee.position}</p>
+                    <p className="employee-department">{employee.department} · {getRoleLabel(employee.position)}</p>
                   </div>
                   <div className="employee-stats">
                     <span className="employee-kpi">{clampPercent(employee.kpi)}%</span>

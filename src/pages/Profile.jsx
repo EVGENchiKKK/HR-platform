@@ -10,6 +10,7 @@ import {
   TaskAlt,
   TrendingUp,
 } from '@mui/icons-material';
+import getRoleLabel from "../utils/roleLabels";
 import './../style/workspace-pages.css';
 import './../style/profile.css';
 
@@ -89,7 +90,7 @@ export const Profile = () => {
   const appeals = workspaceData.appeals || [];
 
   const userName = `${user?.firstName || user?.U_name || ''} ${user?.lastName || user?.U_surname || ''}`.trim() || 'Пользователь';
-  const userRole = user?.role || user?.R_name || 'Сотрудник';
+  const userRole = getRoleLabel(user?.role || user?.R_name);
   const userEmail = user?.email || user?.U_email || 'user@company.local';
   const userDepartment = user?.department || null;
 
