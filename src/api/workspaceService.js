@@ -9,6 +9,16 @@ export const getWorkspaceData = async () => {
   return response.data;
 };
 
+export const getAppealsData = async () => {
+  const response = await axiosInstance.get('/workspace/appeals');
+  return response.data;
+};
+
+export const getForumData = async () => {
+  const response = await axiosInstance.get('/workspace/forum');
+  return response.data;
+};
+
 export const markNotificationsRead = async () => {
   const response = await axiosInstance.put('/workspace/notifications/read-all');
   return response.data;
@@ -81,6 +91,8 @@ export const advanceCourseProgress = async (courseId) => {
 
 export default {
   getWorkspaceData,
+  getAppealsData,
+  getForumData,
   markNotificationsRead,
   createAppeal,
   createForumTopic,

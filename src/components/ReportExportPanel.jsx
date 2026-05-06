@@ -27,7 +27,6 @@ export function ReportExportPanel({ workspaceData, user, title = "Экспорт
         </div>
         <div>
           <h3 className="report-export-title">{title}</h3>
-          <p className="report-export-subtitle">Выгрузка идет из актуальных данных, уже полученных из базы данных.</p>
         </div>
       </div>
 

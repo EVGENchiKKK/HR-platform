@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { ForumOutlined, PushPin, RemoveRedEye, Send, SmsOutlined } from "@mui/icons-material";
+import { RemoveRedEye, Send, SmsOutlined } from "@mui/icons-material";
+import { getSocket } from "../api/socket";
 import workspaceService from "../api/workspaceService";
 import getRoleLabel from "../utils/roleLabels";
 import "./../style/workspace-pages.css";
@@ -30,7 +31,7 @@ const formatDateTime = (value) => {
 };
 
 export const Forum = () => {
-  const { user, workspaceData, workspaceLoading, workspaceError, refreshWorkspaceData } = useOutletContext();
+  const { user, workspaceData, workspaceLoading, workspaceError } = useOutletContext();
   const [selectedTopicId, setSelectedTopicId] = useState(null);
   const [topicForm, setTopicForm] = useState(initialTopicForm);
   const [replyText, setReplyText] = useState("");
@@ -40,10 +41,27 @@ export const Forum = () => {
   const [topicSuccess, setTopicSuccess] = useState("");
   const [replyError, setReplyError] = useState("");
   const [replySuccess, setReplySuccess] = useState("");
+  const [forumPostsState, setForumPostsState] = useState(workspaceData.forumPosts || []);
   const threadRef = useRef(null);
 
-  const forumPosts = workspaceData.forumPosts || [];
+  const forumPosts = forumPostsState;
   const currentUserId = Number(user?.id || user?.User_ID || 0);
+
+  const replaceTopic = useCallback((topicId, updater) => {
+    setForumPostsState((current) =>
+      current.map((topic) => (Number(topic.id) === Number(topicId) ? updater(topic) : topic))
+    );
+  }, []);
+
+  const loadForumData = useCallback(async () => {
+    const result = await workspaceService.getForumData();
+
+    if (result.success && result.data) {
+      setForumPostsState(result.data.forumPosts || []);
+    }
+
+    return result;
+  }, []);
 
   const selectedTopic = forumPosts.find((post) => post.id === selectedTopicId) ?? forumPosts[0] ?? null;
 
@@ -51,6 +69,10 @@ export const Forum = () => {
     () => forumPosts.reduce((sum, post) => sum + (post.messages?.length || 0), 0),
     [forumPosts]
   );
+
+  useEffect(() => {
+    setForumPostsState(workspaceData.forumPosts || []);
+  }, [workspaceData.forumPosts]);
 
   useEffect(() => {
     if (!selectedTopic) {
@@ -70,6 +92,70 @@ export const Forum = () => {
 
     threadRef.current.scrollTop = threadRef.current.scrollHeight;
   }, [selectedTopic]);
+
+  useEffect(() => {
+    if (workspaceLoading || workspaceError) {
+      return undefined;
+    }
+
+    const socket = getSocket();
+    if (!socket) {
+      return undefined;
+    }
+
+    const handleTopicCreated = ({ topic }) => {
+      if (!topic) {
+        loadForumData().catch(() => {});
+        return;
+      }
+
+      setForumPostsState((current) => {
+        const exists = current.some((item) => Number(item.id) === Number(topic.id));
+        if (exists) {
+          return current;
+        }
+
+        return [topic, ...current];
+      });
+    };
+
+    const handleForumMessage = ({ topicId, message, updatedAt }) => {
+      replaceTopic(topicId, (topic) => {
+        const alreadyExists = (topic.messages || []).some((item) => String(item.id) === String(message?.id));
+        const nextMessages = message && !alreadyExists
+          ? [...(topic.messages || []), message]
+          : (topic.messages || []);
+
+        return {
+          ...topic,
+          replies: nextMessages.length,
+          updatedAt: updatedAt || message?.createdAt || topic.updatedAt,
+          messages: nextMessages,
+        };
+      });
+    };
+
+    socket.on("forum:topic_created", handleTopicCreated);
+    socket.on("forum:message", handleForumMessage);
+
+    return () => {
+      socket.off("forum:topic_created", handleTopicCreated);
+      socket.off("forum:message", handleForumMessage);
+    };
+  }, [loadForumData, replaceTopic, workspaceError, workspaceLoading]);
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket || !selectedTopic?.id) {
+      return undefined;
+    }
+
+    socket.emit("forum:join", { topicId: selectedTopic.id });
+
+    return () => {
+      socket.emit("forum:leave", { topicId: selectedTopic.id });
+    };
+  }, [selectedTopic?.id]);
 
   const handleTopicFormChange = (field) => (event) => {
     setTopicForm((current) => ({ ...current, [field]: event.target.value }));
@@ -96,7 +182,7 @@ export const Forum = () => {
 
       setTopicForm(initialTopicForm);
       setTopicSuccess("Тема форума создана.");
-      await refreshWorkspaceData();
+      await loadForumData();
 
       if (result.data?.id) {
         setSelectedTopicId(Number(result.data.id));
@@ -117,18 +203,60 @@ export const Forum = () => {
     setReplyError("");
     setReplySuccess("");
 
+    const draftText = replyText.trim();
+    const optimisticMessageId = `forum-local-${Date.now()}`;
+
+    replaceTopic(selectedTopic.id, (topic) => {
+      const optimisticMessage = {
+        id: optimisticMessageId,
+        topicId: topic.id,
+        authorId: currentUserId,
+        authorName: user?.firstName || user?.U_name || "Вы",
+        authorRole: user?.role || user?.R_name || "employee",
+        content: draftText,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        isEdited: false,
+        isSolution: false,
+      };
+
+      return {
+        ...topic,
+        replies: (topic.messages?.length || 0) + 1,
+        updatedAt: optimisticMessage.createdAt,
+        messages: [...(topic.messages || []), optimisticMessage],
+      };
+    });
+    setReplyText("");
+
     try {
-      const result = await workspaceService.createForumPost(selectedTopic.id, { content: replyText });
+      const result = await workspaceService.createForumPost(selectedTopic.id, { content: draftText });
 
       if (!result.success) {
+        replaceTopic(selectedTopic.id, (topic) => {
+          const messages = (topic.messages || []).filter((message) => message.id !== optimisticMessageId);
+          return {
+            ...topic,
+            replies: messages.length,
+            messages,
+          };
+        });
+        setReplyText(draftText);
         setReplyError(result.error || "Не удалось отправить сообщение.");
         return;
       }
 
-      setReplyText("");
       setReplySuccess("Сообщение отправлено.");
-      await refreshWorkspaceData();
     } catch (error) {
+      replaceTopic(selectedTopic.id, (topic) => {
+        const messages = (topic.messages || []).filter((message) => message.id !== optimisticMessageId);
+        return {
+          ...topic,
+          replies: messages.length,
+          messages,
+        };
+      });
+      setReplyText(draftText);
       setReplyError(error.response?.data?.error || "Не удалось отправить сообщение.");
     } finally {
       setIsSendingReply(false);

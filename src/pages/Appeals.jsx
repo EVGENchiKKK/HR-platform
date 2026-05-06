@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { Campaign, ErrorOutline, MarkEmailRead, Schedule, Send } from "@mui/icons-material";
+import { getSocket } from "../api/socket";
 import workspaceService from "../api/workspaceService";
 import getRoleLabel from "../utils/roleLabels";
 import "./../style/workspace-pages.css";
@@ -53,7 +54,7 @@ const formatDateTime = (value) => {
 };
 
 export const Appeals = () => {
-  const { user, workspaceData, workspaceLoading, workspaceError, refreshWorkspaceData } = useOutletContext();
+  const { user, workspaceData, workspaceLoading, workspaceError } = useOutletContext();
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [selectedId, setSelectedId] = useState(null);
@@ -69,13 +70,32 @@ export const Appeals = () => {
   const [statusSuccess, setStatusSuccess] = useState("");
   const [createError, setCreateError] = useState("");
   const [createSuccess, setCreateSuccess] = useState("");
+  const [appealsState, setAppealsState] = useState(workspaceData.appeals || []);
+  const [appealRecipientsState, setAppealRecipientsState] = useState(workspaceData.appealRecipients || []);
   const chatThreadRef = useRef(null);
 
-  const appeals = workspaceData.appeals || [];
-  const appealRecipients = workspaceData.appealRecipients || [];
+  const appeals = appealsState;
+  const appealRecipients = appealRecipientsState;
   const currentUserId = Number(user?.id || user?.User_ID || 0);
   const currentUserRole = `${user?.role || user?.R_name || ""}`.toLowerCase();
   const canManageAppeals = ["hr", "admin"].includes(currentUserRole);
+
+  const replaceAppeal = useCallback((appealId, updater) => {
+    setAppealsState((current) =>
+      current.map((appeal) => (Number(appeal.id) === Number(appealId) ? updater(appeal) : appeal))
+    );
+  }, []);
+
+  const loadAppealsData = useCallback(async () => {
+    const result = await workspaceService.getAppealsData();
+
+    if (result.success && result.data) {
+      setAppealsState(result.data.appeals || []);
+      setAppealRecipientsState(result.data.appealRecipients || []);
+    }
+
+    return result;
+  }, []);
 
   const recipients = useMemo(
     () => appealRecipients,
@@ -96,6 +116,14 @@ export const Appeals = () => {
   const canReplyToAppeal = Boolean(selectedAppeal && (canManageAppeals || Number(selectedAppeal.authorId) === currentUserId));
 
   useEffect(() => {
+    setAppealsState(workspaceData.appeals || []);
+  }, [workspaceData.appeals]);
+
+  useEffect(() => {
+    setAppealRecipientsState(workspaceData.appealRecipients || []);
+  }, [workspaceData.appealRecipients]);
+
+  useEffect(() => {
     if (!selectedAppeal) {
       setSelectedId(null);
       return;
@@ -111,13 +139,20 @@ export const Appeals = () => {
       return;
     }
 
-    setEditedStatus(selectedAppeal.status);
     setMessageText("");
     setMessageError("");
     setMessageSuccess("");
     setStatusError("");
     setStatusSuccess("");
-  }, [selectedAppeal]);
+  }, [selectedAppeal?.id]);
+
+  useEffect(() => {
+    if (!selectedAppeal) {
+      return;
+    }
+
+    setEditedStatus(selectedAppeal.status);
+  }, [selectedAppeal?.status]);
 
   useEffect(() => {
     if (!chatThreadRef.current) {
@@ -126,6 +161,69 @@ export const Appeals = () => {
 
     chatThreadRef.current.scrollTop = chatThreadRef.current.scrollHeight;
   }, [selectedAppeal]);
+
+  useEffect(() => {
+    if (workspaceLoading || workspaceError) {
+      return undefined;
+    }
+
+    const socket = getSocket();
+    if (!socket) {
+      return undefined;
+    }
+
+    const handleAppealCreated = () => {
+      loadAppealsData().catch(() => {});
+    };
+
+    const handleAppealUpdated = ({ appealId, status }) => {
+      replaceAppeal(appealId, (appeal) => ({
+        ...appeal,
+        status: status || appeal.status,
+      }));
+      loadAppealsData().catch(() => {});
+    };
+
+    const handleAppealMessage = ({ appealId, status, message }) => {
+      replaceAppeal(appealId, (appeal) => {
+        const alreadyExists = (appeal.messages || []).some((item) => String(item.id) === String(message?.id));
+        const nextMessages = message && !alreadyExists
+          ? [...(appeal.messages || []), message]
+          : (appeal.messages || []);
+
+        return {
+          ...appeal,
+          status: status || appeal.status,
+          messages: nextMessages,
+          lastMessageAt: message?.createdAt || appeal.lastMessageAt,
+        };
+      });
+      loadAppealsData().catch(() => {});
+    };
+
+    socket.on("appeal:created", handleAppealCreated);
+    socket.on("appeal:updated", handleAppealUpdated);
+    socket.on("appeal:message", handleAppealMessage);
+
+    return () => {
+      socket.off("appeal:created", handleAppealCreated);
+      socket.off("appeal:updated", handleAppealUpdated);
+      socket.off("appeal:message", handleAppealMessage);
+    };
+  }, [loadAppealsData, replaceAppeal, workspaceError, workspaceLoading]);
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket || !selectedAppeal?.id) {
+      return undefined;
+    }
+
+    socket.emit("appeal:join", { appealId: selectedAppeal.id });
+
+    return () => {
+      socket.emit("appeal:leave", { appealId: selectedAppeal.id });
+    };
+  }, [selectedAppeal?.id]);
 
   const handleAppealFormChange = (field) => (event) => {
     const value = event.target.type === "checkbox" ? event.target.checked : event.target.value;
@@ -161,7 +259,7 @@ export const Appeals = () => {
 
       setAppealForm(initialAppealForm);
       setCreateSuccess("Обращение зарегистрировано.");
-      await refreshWorkspaceData();
+      await loadAppealsData();
 
       if (result.data?.id) {
         setSelectedId(Number(result.data.id));
@@ -192,8 +290,11 @@ export const Appeals = () => {
         return;
       }
 
+      replaceAppeal(selectedAppeal.id, (appeal) => ({
+        ...appeal,
+        status: result.data?.status || editedStatus,
+      }));
       setStatusSuccess("Статус обращения обновлён.");
-      await refreshWorkspaceData();
     } catch (error) {
       setStatusError(error.response?.data?.error || "Не удалось обновить статус обращения.");
     } finally {
@@ -209,21 +310,67 @@ export const Appeals = () => {
     setIsSending(true);
     setMessageError("");
     setMessageSuccess("");
+    const draftText = messageText.trim();
+    const optimisticMessageId = `local-${Date.now()}`;
+
+    replaceAppeal(selectedAppeal.id, (appeal) => {
+      const optimisticMessage = {
+        id: optimisticMessageId,
+        appealId: appeal.id,
+        authorId: currentUserId,
+        authorName: user?.firstName || user?.U_name || "Вы",
+        authorRole: currentUserRole || "employee",
+        text: draftText,
+        createdAt: new Date().toISOString(),
+        type: "message",
+      };
+      const nextStatus = canManageAppeals
+        ? (appeal.status === "open" ? "in_review" : appeal.status)
+        : (appeal.status === "resolved" ? "in_review" : appeal.status);
+
+      return {
+        ...appeal,
+        status: nextStatus,
+        messages: [...(appeal.messages || []), optimisticMessage],
+        lastMessageAt: optimisticMessage.createdAt,
+      };
+    });
+    setMessageText("");
 
     try {
       const result = await workspaceService.sendAppealMessage(selectedAppeal.id, {
-        content: messageText,
+        content: draftText,
       });
 
       if (!result.success) {
+        replaceAppeal(selectedAppeal.id, (appeal) => ({
+          ...appeal,
+          messages: (appeal.messages || []).filter((message) => message.id !== optimisticMessageId),
+        }));
+        setMessageText(draftText);
         setMessageError(result.error || "Не удалось отправить сообщение.");
         return;
       }
 
-      setMessageText("");
+      replaceAppeal(selectedAppeal.id, (appeal) => {
+        const persistedMessage = result.data?.message;
+        const messages = (appeal.messages || []).filter((message) => message.id !== optimisticMessageId);
+        const alreadyExists = messages.some((message) => String(message.id) === String(persistedMessage?.id));
+
+        return {
+          ...appeal,
+          status: result.data?.status || appeal.status,
+          messages: persistedMessage && !alreadyExists ? [...messages, persistedMessage] : messages,
+          lastMessageAt: persistedMessage?.createdAt || appeal.lastMessageAt,
+        };
+      });
       setMessageSuccess("Сообщение отправлено.");
-      await refreshWorkspaceData();
     } catch (error) {
+      replaceAppeal(selectedAppeal.id, (appeal) => ({
+        ...appeal,
+        messages: (appeal.messages || []).filter((message) => message.id !== optimisticMessageId),
+      }));
+      setMessageText(draftText);
       setMessageError(error.response?.data?.error || "Не удалось отправить сообщение.");
     } finally {
       setIsSending(false);
