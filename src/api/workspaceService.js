@@ -69,6 +69,11 @@ export const completeTask = async (taskId) => {
   return response.data;
 };
 
+export const updateTaskStatus = async (taskId, payload) => {
+  const response = await axiosInstance.put(`/workspace/tasks/${taskId}/status`, payload);
+  return response.data;
+};
+
 export const sendAppealMessage = async (appealId, payload) => {
   const response = await axiosInstance.post(`/workspace/appeals/${appealId}/messages`, payload);
   return response.data;
@@ -102,6 +107,7 @@ export default {
   createEmployee,
   createTest,
   completeTask,
+  updateTaskStatus,
   updateAppeal,
   sendAppealMessage,
   submitSurvey,

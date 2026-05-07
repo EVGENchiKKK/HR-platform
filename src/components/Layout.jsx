@@ -21,6 +21,7 @@ import {
 } from "@mui/icons-material";
 import { useAuth } from "../hooks/useAuth";
 import workspaceService from "../api/workspaceService";
+import { getSocket } from "../api/socket";
 import getRoleLabel from "../utils/roleLabels";
 import "./../style/layout.css";
 
@@ -106,6 +107,32 @@ export function Layout() {
     useEffect(() => {
         loadWorkspaceData();
     }, [loadWorkspaceData]);
+
+    useEffect(() => {
+        const socket = getSocket();
+        if (!socket) {
+            return undefined;
+        }
+
+        const handleNotification = ({ notification }) => {
+            if (!notification) {
+                return;
+            }
+
+            setWorkspaceData((current) => ({
+                ...current,
+                notifications: [notification, ...(current.notifications || [])]
+                    .filter((item, index, collection) => collection.findIndex((entry) => entry.id === item.id) === index)
+                    .slice(0, 20),
+            }));
+        };
+
+        socket.on("notification:new", handleNotification);
+
+        return () => {
+            socket.off("notification:new", handleNotification);
+        };
+    }, []);
 
     const getUserInitials = () => {
         if (!user) return "П";

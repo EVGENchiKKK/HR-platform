@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { CalendarToday, Flag, TaskAlt, WarningAmber } from "@mui/icons-material";
 import workspaceService from "../api/workspaceService";
@@ -26,13 +26,20 @@ const initialTaskForm = {
   kpiWeight: 25,
 };
 
+const employeeTaskStatuses = [
+  { value: "pending", label: "Ожидает" },
+  { value: "in_progress", label: "В работе" },
+  { value: "completed", label: "Завершена" },
+];
+
 export const Tasks = () => {
   const { user, workspaceData, workspaceLoading, workspaceError, refreshWorkspaceData } = useOutletContext();
   const [statusFilter, setStatusFilter] = useState("all");
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [taskForm, setTaskForm] = useState(initialTaskForm);
   const [isCreatingTask, setIsCreatingTask] = useState(false);
-  const [isCompletingTaskId, setIsCompletingTaskId] = useState(null);
+  const [isUpdatingTaskId, setIsUpdatingTaskId] = useState(null);
+  const [taskStatusDrafts, setTaskStatusDrafts] = useState({});
   const [taskError, setTaskError] = useState("");
   const [taskSuccess, setTaskSuccess] = useState("");
 
@@ -59,6 +66,15 @@ export const Tasks = () => {
 
   const completedTasks = tasks.filter((task) => task.status === "completed").length;
   const overdueTasks = tasks.filter((task) => task.deadline < new Date().toISOString().slice(0, 10) && task.status !== "completed").length;
+
+  useEffect(() => {
+    setTaskStatusDrafts(
+      tasks.reduce((accumulator, task) => {
+        accumulator[task.id] = task.status;
+        return accumulator;
+      }, {})
+    );
+  }, [tasks]);
 
   const handleTaskFormChange = (field) => (event) => {
     setTaskForm((current) => ({ ...current, [field]: event.target.value }));
@@ -97,25 +113,38 @@ export const Tasks = () => {
     }
   };
 
-  const handleCompleteTask = async (taskId) => {
-    setIsCompletingTaskId(taskId);
+  const handleTaskStatusDraftChange = (taskId) => (event) => {
+    const nextStatus = event.target.value;
+    setTaskStatusDrafts((current) => ({
+      ...current,
+      [taskId]: nextStatus,
+    }));
+  };
+
+  const handleUpdateTaskStatus = async (taskId) => {
+    const nextStatus = taskStatusDrafts[taskId];
+    if (!nextStatus) {
+      return;
+    }
+
+    setIsUpdatingTaskId(taskId);
     setTaskError("");
     setTaskSuccess("");
 
     try {
-      const result = await workspaceService.completeTask(taskId);
+      const result = await workspaceService.updateTaskStatus(taskId, { status: nextStatus });
 
       if (!result.success) {
-        setTaskError(result.error || "Не удалось завершить задачу.");
+        setTaskError(result.error || "Не удалось обновить статус задачи.");
         return;
       }
 
-      setTaskSuccess(result.message || "Задача завершена.");
+      setTaskSuccess(result.message || "Статус задачи обновлён.");
       await refreshWorkspaceData();
     } catch (error) {
-      setTaskError(error.response?.data?.error || "Не удалось завершить задачу.");
+      setTaskError(error.response?.data?.error || "Не удалось обновить статус задачи.");
     } finally {
-      setIsCompletingTaskId(null);
+      setIsUpdatingTaskId(null);
     }
   };
 
@@ -135,7 +164,7 @@ export const Tasks = () => {
           <h2 className="workspace-title">Задачи и контроль сроков</h2>
           <p className="workspace-description">
             HR видит все задачи и может назначать их конкретным сотрудникам. Сотрудник видит только свои задачи и
-            может сам отмечать их завершение.
+            может сам менять статус выполнения.
           </p>
         </div>
         <div className="workspace-metrics">
@@ -254,7 +283,9 @@ export const Tasks = () => {
 
         <div className="workspace-card-grid">
           {filteredTasks.map((task) => {
-            const canComplete = !canManageTasks && task.status !== "completed" && task.status !== "cancelled";
+            const canUpdateStatus = !canManageTasks && task.status !== "cancelled";
+            const selectedStatus = taskStatusDrafts[task.id] || task.status;
+            const hasStatusChanged = selectedStatus !== task.status;
 
             return (
               <article key={task.id} className="workspace-card">
@@ -280,15 +311,27 @@ export const Tasks = () => {
                   </div>
                 </div>
 
-                {canComplete ? (
+                {canUpdateStatus ? (
                   <div className="appeal-form-actions">
+                    <select
+                      value={selectedStatus}
+                      onChange={handleTaskStatusDraftChange(task.id)}
+                      className="workspace-select"
+                      disabled={isUpdatingTaskId === task.id}
+                    >
+                      {employeeTaskStatuses.map((statusOption) => (
+                        <option key={statusOption.value} value={statusOption.value}>
+                          {statusOption.label}
+                        </option>
+                      ))}
+                    </select>
                     <button
                       type="button"
                       className="appeal-primary-action"
-                      onClick={() => handleCompleteTask(task.id)}
-                      disabled={isCompletingTaskId === task.id}
+                      onClick={() => handleUpdateTaskStatus(task.id)}
+                      disabled={isUpdatingTaskId === task.id || !hasStatusChanged}
                     >
-                      {isCompletingTaskId === task.id ? "Завершение..." : "Отметить выполнение"}
+                      {isUpdatingTaskId === task.id ? "Сохранение..." : "Сохранить статус"}
                     </button>
                   </div>
                 ) : null}
