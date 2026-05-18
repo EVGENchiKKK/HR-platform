@@ -33,6 +33,7 @@ const formatDateTime = (value) => {
 export const Forum = () => {
   const { user, workspaceData, workspaceLoading, workspaceError } = useOutletContext();
   const [selectedTopicId, setSelectedTopicId] = useState(null);
+  const [isCreateTopicModalOpen, setIsCreateTopicModalOpen] = useState(false);
   const [topicForm, setTopicForm] = useState(initialTopicForm);
   const [replyText, setReplyText] = useState("");
   const [isCreatingTopic, setIsCreatingTopic] = useState(false);
@@ -46,6 +47,31 @@ export const Forum = () => {
 
   const forumPosts = forumPostsState;
   const currentUserId = Number(user?.id || user?.User_ID || 0);
+
+  const reconcileForumMessages = useCallback((messages, incomingMessage) => {
+    if (!incomingMessage) {
+      return messages || [];
+    }
+
+    const currentMessages = messages || [];
+    const persistedExists = currentMessages.some((item) => String(item.id) === String(incomingMessage.id));
+    if (persistedExists) {
+      return currentMessages;
+    }
+
+    const optimisticIndex = currentMessages.findIndex(
+      (item) =>
+        String(item.id || "").startsWith("forum-local-") &&
+        Number(item.authorId) === Number(incomingMessage.authorId) &&
+        `${item.content || ""}`.trim() === `${incomingMessage.content || ""}`.trim()
+    );
+
+    if (optimisticIndex >= 0) {
+      return currentMessages.map((item, index) => (index === optimisticIndex ? incomingMessage : item));
+    }
+
+    return [...currentMessages, incomingMessage];
+  }, []);
 
   const replaceTopic = useCallback((topicId, updater) => {
     setForumPostsState((current) =>
@@ -121,10 +147,7 @@ export const Forum = () => {
 
     const handleForumMessage = ({ topicId, message, updatedAt }) => {
       replaceTopic(topicId, (topic) => {
-        const alreadyExists = (topic.messages || []).some((item) => String(item.id) === String(message?.id));
-        const nextMessages = message && !alreadyExists
-          ? [...(topic.messages || []), message]
-          : (topic.messages || []);
+        const nextMessages = reconcileForumMessages(topic.messages, message);
 
         return {
           ...topic,
@@ -142,7 +165,7 @@ export const Forum = () => {
       socket.off("forum:topic_created", handleTopicCreated);
       socket.off("forum:message", handleForumMessage);
     };
-  }, [loadForumData, replaceTopic, workspaceError, workspaceLoading]);
+  }, [loadForumData, reconcileForumMessages, replaceTopic, workspaceError, workspaceLoading]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -182,6 +205,7 @@ export const Forum = () => {
 
       setTopicForm(initialTopicForm);
       setTopicSuccess("Тема форума создана.");
+      setIsCreateTopicModalOpen(false);
       await loadForumData();
 
       if (result.data?.id) {
@@ -298,62 +322,19 @@ export const Forum = () => {
         </div>
       </section>
 
-      <section className="appeal-create-panel">
-        <div className="appeal-create-header">
-          <div>
-            <h3 className="appeals-list-title">Новая тема</h3>
-            <p className="appeal-create-description">Создайте общую тему для обсуждения, вопроса или объявления.</p>
-          </div>
-        </div>
-
-        <div className="appeal-form-grid">
-          <label className="appeal-form-field appeal-form-field-wide">
-            <span>Заголовок</span>
-            <input
-              type="text"
-              value={topicForm.title}
-              onChange={handleTopicFormChange("title")}
-              className="appeal-chat-input"
-              placeholder="Например: Вопрос по отпуску или идея для процесса"
-            />
-          </label>
-
-          <label className="appeal-form-field">
-            <span>Категория</span>
-            <select value={topicForm.category} onChange={handleTopicFormChange("category")} className="workspace-select">
-              <option value="Обсуждение">Обсуждение</option>
-              <option value="IT-поддержка">IT-поддержка</option>
-              <option value="Организационные вопросы">Организационные вопросы</option>
-              <option value="Корпоративная жизнь">Корпоративная жизнь</option>
-              <option value="Объявления">Объявления</option>
-            </select>
-          </label>
-
-          <label className="appeal-form-field appeal-form-field-wide">
-            <span>Первое сообщение</span>
-            <textarea
-              value={topicForm.content}
-              onChange={handleTopicFormChange("content")}
-              className="appeal-chat-input appeal-chat-input-multiline"
-              placeholder="Опишите тему обсуждения"
-            />
-          </label>
-        </div>
-
-        <div className="appeal-form-actions">
-          <button type="button" onClick={handleCreateTopic} className="appeal-primary-action" disabled={isCreatingTopic}>
-            {isCreatingTopic ? "Сохранение..." : "Создать тему"}
-          </button>
-          {topicError ? <div className="workspace-empty">{topicError}</div> : null}
-          {topicSuccess ? <div className="workspace-success">{topicSuccess}</div> : null}
-        </div>
-      </section>
-
       <section className="appeals-layout">
         <div className="appeals-list-panel">
           <div className="appeals-list-header">
-            <h3 className="appeals-list-title">Темы форума ({forumPosts.length})</h3>
+            <div className="workspace-toolbar">
+              <h3 className="appeals-list-title">Темы форума ({forumPosts.length})</h3>
+              <button type="button" onClick={() => setIsCreateTopicModalOpen(true)} className="appeal-primary-action">
+                Новая тема
+              </button>
+            </div>
           </div>
+
+          {topicSuccess ? <div className="workspace-success workspace-panel-feedback">{topicSuccess}</div> : null}
+          {topicError ? <div className="workspace-empty workspace-panel-feedback">{topicError}</div> : null}
 
           <div className="appeals-list">
             {forumPosts.map((post) => (
@@ -467,6 +448,67 @@ export const Forum = () => {
           )}
         </div>
       </section>
+
+      {isCreateTopicModalOpen ? (
+        <div className="modal-overlay" onClick={() => setIsCreateTopicModalOpen(false)}>
+          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3 className="appeals-list-title">Новая тема</h3>
+                <p className="appeal-create-description">Создайте общую тему для обсуждения, вопроса или объявления.</p>
+              </div>
+              <button type="button" className="modal-close" onClick={() => setIsCreateTopicModalOpen(false)}>
+                ×
+              </button>
+            </div>
+
+            <div className="appeal-form-grid">
+              <label className="appeal-form-field appeal-form-field-wide">
+                <span>Заголовок</span>
+                <input
+                  type="text"
+                  value={topicForm.title}
+                  onChange={handleTopicFormChange("title")}
+                  className="appeal-chat-input"
+                  placeholder="Например: Вопрос по отпуску или идея для процесса"
+                />
+              </label>
+
+              <label className="appeal-form-field">
+                <span>Категория</span>
+                <select value={topicForm.category} onChange={handleTopicFormChange("category")} className="workspace-select">
+                  <option value="Обсуждение">Обсуждение</option>
+                  <option value="IT-поддержка">IT-поддержка</option>
+                  <option value="Организационные вопросы">Организационные вопросы</option>
+                  <option value="Корпоративная жизнь">Корпоративная жизнь</option>
+                  <option value="Объявления">Объявления</option>
+                </select>
+              </label>
+
+              <label className="appeal-form-field appeal-form-field-wide">
+                <span>Первое сообщение</span>
+                <textarea
+                  value={topicForm.content}
+                  onChange={handleTopicFormChange("content")}
+                  className="appeal-chat-input appeal-chat-input-multiline"
+                  placeholder="Опишите тему обсуждения"
+                />
+              </label>
+            </div>
+
+            {topicError ? <div className="workspace-empty">{topicError}</div> : null}
+
+            <div className="appeal-form-actions">
+              <button type="button" className="appeal-secondary-action" onClick={() => setIsCreateTopicModalOpen(false)}>
+                Отмена
+              </button>
+              <button type="button" onClick={handleCreateTopic} className="appeal-primary-action" disabled={isCreatingTopic}>
+                {isCreatingTopic ? "Сохранение..." : "Создать тему"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };

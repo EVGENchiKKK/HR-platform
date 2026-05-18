@@ -36,6 +36,7 @@ export const Tasks = () => {
   const { user, workspaceData, workspaceLoading, workspaceError, refreshWorkspaceData } = useOutletContext();
   const [statusFilter, setStatusFilter] = useState("all");
   const [departmentFilter, setDepartmentFilter] = useState("all");
+  const [isCreateTaskModalOpen, setIsCreateTaskModalOpen] = useState(false);
   const [taskForm, setTaskForm] = useState(initialTaskForm);
   const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [isUpdatingTaskId, setIsUpdatingTaskId] = useState(null);
@@ -105,6 +106,7 @@ export const Tasks = () => {
 
       setTaskForm(initialTaskForm);
       setTaskSuccess("Задача создана и назначена сотруднику.");
+      setIsCreateTaskModalOpen(false);
       await refreshWorkspaceData();
     } catch (error) {
       setTaskError(error.response?.data?.error || "Не удалось создать задачу.");
@@ -183,86 +185,13 @@ export const Tasks = () => {
         </div>
       </section>
 
-      {canManageTasks ? (
-        <section className="appeal-create-panel">
-          <div className="appeal-create-header">
-            <div>
-              <h3 className="appeals-list-title">Новая задача</h3>
-              <p className="appeal-create-description">Задача будет сразу привязана к выбранному сотруднику.</p>
-            </div>
-          </div>
-
-          <div className="appeal-form-grid">
-            <label className="appeal-form-field">
-              <span>Сотрудник</span>
-              <select value={taskForm.assigneeId} onChange={handleTaskFormChange("assigneeId")} className="workspace-select">
-                <option value="">Выберите сотрудника</option>
-                {assignableEmployees.map((employee) => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.name} · {employee.department}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="appeal-form-field">
-              <span>Приоритет</span>
-              <select value={taskForm.priority} onChange={handleTaskFormChange("priority")} className="workspace-select">
-                <option value="low">Низкий</option>
-                <option value="medium">Средний</option>
-                <option value="high">Высокий</option>
-              </select>
-            </label>
-
-            <label className="appeal-form-field">
-              <span>Срок</span>
-              <input type="date" value={taskForm.deadline} onChange={handleTaskFormChange("deadline")} className="appeal-chat-input" />
-            </label>
-
-            <label className="appeal-form-field appeal-form-field-wide">
-              <span>Название</span>
-              <input
-                type="text"
-                value={taskForm.title}
-                onChange={handleTaskFormChange("title")}
-                className="appeal-chat-input"
-                placeholder="Например: Пройти вводный инструктаж"
-              />
-            </label>
-
-            <label className="appeal-form-field appeal-form-field-wide">
-              <span>Описание</span>
-              <textarea
-                value={taskForm.description}
-                onChange={handleTaskFormChange("description")}
-                className="appeal-chat-input appeal-chat-input-multiline"
-                placeholder="Опишите ожидаемый результат"
-              />
-            </label>
-
-            <label className="appeal-form-field">
-              <span>Вес KPI, %</span>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                value={taskForm.kpiWeight}
-                onChange={handleTaskFormChange("kpiWeight")}
-                className="appeal-chat-input"
-              />
-            </label>
-          </div>
-
-          <div className="appeal-form-actions">
-            <button type="button" className="appeal-primary-action" onClick={handleCreateTask} disabled={isCreatingTask}>
-              {isCreatingTask ? "Сохранение..." : "Создать задачу"}
-            </button>
-          </div>
-        </section>
-      ) : null}
-
       <section className="workspace-panel">
         <div className="workspace-toolbar">
+          {canManageTasks ? (
+            <button type="button" className="appeal-primary-action" onClick={() => setIsCreateTaskModalOpen(true)}>
+              Новая задача
+            </button>
+          ) : null}
           <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="workspace-select">
             <option value="all">Все статусы</option>
             <option value="pending">Ожидает</option>
@@ -347,6 +276,94 @@ export const Tasks = () => {
           </div>
         )}
       </section>
+
+      {canManageTasks && isCreateTaskModalOpen ? (
+        <div className="modal-overlay" onClick={() => setIsCreateTaskModalOpen(false)}>
+          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3 className="appeals-list-title">Новая задача</h3>
+                <p className="appeal-create-description">Задача будет сразу привязана к выбранному сотруднику.</p>
+              </div>
+              <button type="button" className="modal-close" onClick={() => setIsCreateTaskModalOpen(false)}>
+                ×
+              </button>
+            </div>
+
+            <div className="appeal-form-grid">
+              <label className="appeal-form-field">
+                <span>Сотрудник</span>
+                <select value={taskForm.assigneeId} onChange={handleTaskFormChange("assigneeId")} className="workspace-select">
+                  <option value="">Выберите сотрудника</option>
+                  {assignableEmployees.map((employee) => (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.name} · {employee.department}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="appeal-form-field">
+                <span>Приоритет</span>
+                <select value={taskForm.priority} onChange={handleTaskFormChange("priority")} className="workspace-select">
+                  <option value="low">Низкий</option>
+                  <option value="medium">Средний</option>
+                  <option value="high">Высокий</option>
+                </select>
+              </label>
+
+              <label className="appeal-form-field">
+                <span>Срок</span>
+                <input type="date" value={taskForm.deadline} onChange={handleTaskFormChange("deadline")} className="appeal-chat-input" />
+              </label>
+
+              <label className="appeal-form-field appeal-form-field-wide">
+                <span>Название</span>
+                <input
+                  type="text"
+                  value={taskForm.title}
+                  onChange={handleTaskFormChange("title")}
+                  className="appeal-chat-input"
+                  placeholder="Например: Пройти вводный инструктаж"
+                />
+              </label>
+
+              <label className="appeal-form-field appeal-form-field-wide">
+                <span>Описание</span>
+                <textarea
+                  value={taskForm.description}
+                  onChange={handleTaskFormChange("description")}
+                  className="appeal-chat-input appeal-chat-input-multiline"
+                  placeholder="Опишите ожидаемый результат"
+                />
+              </label>
+
+              <label className="appeal-form-field">
+                <span>Вес KPI, %</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={taskForm.kpiWeight}
+                  onChange={handleTaskFormChange("kpiWeight")}
+                  className="appeal-chat-input"
+                />
+              </label>
+            </div>
+
+            {taskError ? <div className="workspace-empty">{taskError}</div> : null}
+
+            <div className="appeal-form-actions">
+              <button type="button" className="appeal-secondary-action" onClick={() => setIsCreateTaskModalOpen(false)}>
+                Отмена
+              </button>
+              <button type="button" className="appeal-primary-action" onClick={handleCreateTask} disabled={isCreatingTask}>
+                {isCreatingTask ? "Сохранение..." : "Создать задачу"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };

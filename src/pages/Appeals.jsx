@@ -25,6 +25,34 @@ const typeLabels = {
   question: "Вопрос",
 };
 
+const formatAppealType = (type) => typeLabels[`${type || ""}`.trim().toLowerCase()] || type || "Обращение";
+
+const formatAppealSubject = (appeal) => {
+  if (!appeal) {
+    return "Обращение";
+  }
+
+  const normalizedType = `${appeal.type || ""}`.trim().toLowerCase();
+  const englishPrefix = ["question", "suggestion", "complaint"].find((item) =>
+    `${appeal.subject || ""}`.trim().toLowerCase().startsWith(`${item}:`)
+  );
+
+  if (englishPrefix) {
+    const tail = `${appeal.subject || ""}`.trim().slice(englishPrefix.length + 1).trim();
+    return `${formatAppealType(englishPrefix)}${tail ? `: ${tail}` : ""}`;
+  }
+
+  if (`${appeal.subject || ""}`.trim()) {
+    return appeal.subject;
+  }
+
+  if (`${appeal.category || ""}`.trim()) {
+    return `${formatAppealType(normalizedType)}: ${appeal.category}`;
+  }
+
+  return formatAppealType(normalizedType);
+};
+
 const initialAppealForm = {
   recipientId: "",
   type: "question",
@@ -57,6 +85,7 @@ export const Appeals = () => {
   const { user, workspaceData, workspaceLoading, workspaceError } = useOutletContext();
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
+  const [isCreateAppealModalOpen, setIsCreateAppealModalOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [editedStatus, setEditedStatus] = useState("open");
   const [messageText, setMessageText] = useState("");
@@ -259,6 +288,7 @@ export const Appeals = () => {
 
       setAppealForm(initialAppealForm);
       setCreateSuccess("Обращение зарегистрировано.");
+      setIsCreateAppealModalOpen(false);
       await loadAppealsData();
 
       if (result.data?.id) {
@@ -412,91 +442,15 @@ export const Appeals = () => {
         </div>
       </section>
 
-      <section className="appeal-create-panel">
-        <div className="appeal-create-header">
-          <div>
-            <h3 className="appeals-list-title">Новое обращение</h3>
-          </div>
-        </div>
-
-        <div className="appeal-form-grid">
-          <label className="appeal-form-field">
-            <span>Получатель</span>
-            <select
-              value={appealForm.recipientId}
-              onChange={handleAppealFormChange("recipientId")}
-              className="workspace-select"
-            >
-              <option value="">Выберите HR или администратора</option>
-              {recipients.map((recipient) => (
-                <option key={recipient.id} value={recipient.id}>
-                  {recipient.name} · {getRoleLabel(recipient.role)}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="appeal-form-field">
-            <span>Тип обращения</span>
-            <select value={appealForm.type} onChange={handleAppealFormChange("type")} className="workspace-select">
-              <option value="question">Вопрос</option>
-              <option value="suggestion">Предложение</option>
-              <option value="complaint">Жалоба</option>
-            </select>
-          </label>
-
-          <label className="appeal-form-field">
-            <span>Приоритет</span>
-            <select value={appealForm.priority} onChange={handleAppealFormChange("priority")} className="workspace-select">
-              <option value="low">Низкий</option>
-              <option value="medium">Средний</option>
-              <option value="high">Высокий</option>
-            </select>
-          </label>
-
-          <label className="appeal-form-field appeal-form-field-wide">
-            <span>Тема обращения</span>
-            <input
-              type="text"
-              value={appealForm.category}
-              onChange={handleAppealFormChange("category")}
-              className="appeal-chat-input"
-              placeholder="Например: Переработки, отпуск, доступ к системе"
-            />
-          </label>
-
-          <label className="appeal-form-field appeal-form-field-wide">
-            <span>Текст обращения</span>
-            <textarea
-              value={appealForm.content}
-              onChange={handleAppealFormChange("content")}
-              className="appeal-chat-input appeal-chat-input-multiline"
-              placeholder="Опишите ситуацию подробно"
-            />
-          </label>
-        </div>
-
-        <div className="appeal-form-options">
-          <label className="appeal-option">
-            <input type="checkbox" checked={appealForm.isAnonymous} onChange={handleAppealFormChange("isAnonymous")} />
-            <span>Анонимное обращение</span>
-          </label>
-          <label className="appeal-option">
-            <input type="checkbox" checked={appealForm.isConfidential} onChange={handleAppealFormChange("isConfidential")} />
-            <span>Конфиденциальное обращение</span>
-          </label>
-        </div>
-
-        <div className="appeal-form-actions">
-          <button type="button" onClick={handleCreateAppeal} className="appeal-primary-action" disabled={isCreatingAppeal || recipients.length === 0}>
-            {isCreatingAppeal ? "Сохранение..." : "Отправить обращение"}
-          </button>
-          {createError ? <div className="workspace-empty">{createError}</div> : null}
-          {createSuccess ? <div className="workspace-success">{createSuccess}</div> : null}
-        </div>
-      </section>
-
       <section className="workspace-toolbar">
+        <button
+          type="button"
+          onClick={() => setIsCreateAppealModalOpen(true)}
+          className="appeal-primary-action"
+          disabled={recipients.length === 0}
+        >
+          Новое обращение
+        </button>
         <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="workspace-select">
           <option value="all">Все статусы</option>
           <option value="open">Открыто</option>
@@ -511,6 +465,9 @@ export const Appeals = () => {
           <option value="low">Низкий</option>
         </select>
       </section>
+
+      {createSuccess ? <div className="workspace-success">{createSuccess}</div> : null}
+      {createError ? <div className="workspace-empty">{createError}</div> : null}
 
       <section className="appeals-layout">
         <div className="appeals-list-panel">
@@ -527,12 +484,12 @@ export const Appeals = () => {
                 className={`appeal-list-item ${selectedAppeal?.id === item.id ? "appeal-list-item-active" : ""}`}
               >
                 <div className="appeal-list-item-top">
-                  <span className="appeal-list-subject">{item.subject}</span>
+                  <span className="appeal-list-subject">{formatAppealSubject(item)}</span>
                   <span className={`workspace-pill workspace-pill-${item.priority}`}>{priorityLabels[item.priority]}</span>
                 </div>
                 <div className="workspace-card-top">
                   <span className={`workspace-pill workspace-pill-${item.status}`}>{statusLabels[item.status]}</span>
-                  <span className="workspace-pill workspace-pill-neutral">{typeLabels[item.type] || item.type}</span>
+                  <span className="workspace-pill workspace-pill-neutral">{formatAppealType(item.type)}</span>
                 </div>
                 <div className="appeal-list-meta">
                   <span>{item.from}</span>
@@ -548,11 +505,11 @@ export const Appeals = () => {
             <>
               <div className="appeal-detail-header">
                 <div>
-                  <h3 className="appeal-detail-title">{selectedAppeal.subject}</h3>
+                  <h3 className="appeal-detail-title">{formatAppealSubject(selectedAppeal)}</h3>
                   <div className="workspace-card-top">
                     <span className={`workspace-pill workspace-pill-${selectedAppeal.status}`}>{statusLabels[selectedAppeal.status]}</span>
                     <span className={`workspace-pill workspace-pill-${selectedAppeal.priority}`}>{priorityLabels[selectedAppeal.priority]}</span>
-                    <span className="workspace-pill workspace-pill-neutral">{typeLabels[selectedAppeal.type] || selectedAppeal.type}</span>
+                    <span className="workspace-pill workspace-pill-neutral">{formatAppealType(selectedAppeal.type)}</span>
                   </div>
                   <p className="appeal-detail-meta">
                     От: {selectedAppeal.from} · {selectedAppeal.department} · {formatDateTime(selectedAppeal.date)}
@@ -665,6 +622,101 @@ export const Appeals = () => {
           )}
         </div>
       </section>
+
+      {isCreateAppealModalOpen ? (
+        <div className="modal-overlay" onClick={() => setIsCreateAppealModalOpen(false)}>
+          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3 className="appeals-list-title">Новое обращение</h3>
+                <p className="appeal-create-description">Выберите получателя, тему, приоритет и опишите ситуацию.</p>
+              </div>
+              <button type="button" className="modal-close" onClick={() => setIsCreateAppealModalOpen(false)}>
+                ×
+              </button>
+            </div>
+
+            <div className="appeal-form-grid">
+              <label className="appeal-form-field">
+                <span>Получатель</span>
+                <select
+                  value={appealForm.recipientId}
+                  onChange={handleAppealFormChange("recipientId")}
+                  className="workspace-select"
+                >
+                  <option value="">Выберите HR или администратора</option>
+                  {recipients.map((recipient) => (
+                    <option key={recipient.id} value={recipient.id}>
+                      {recipient.name} · {getRoleLabel(recipient.role)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="appeal-form-field">
+                <span>Тип обращения</span>
+                <select value={appealForm.type} onChange={handleAppealFormChange("type")} className="workspace-select">
+                  <option value="question">Вопрос</option>
+                  <option value="suggestion">Предложение</option>
+                  <option value="complaint">Жалоба</option>
+                </select>
+              </label>
+
+              <label className="appeal-form-field">
+                <span>Приоритет</span>
+                <select value={appealForm.priority} onChange={handleAppealFormChange("priority")} className="workspace-select">
+                  <option value="low">Низкий</option>
+                  <option value="medium">Средний</option>
+                  <option value="high">Высокий</option>
+                </select>
+              </label>
+
+              <label className="appeal-form-field appeal-form-field-wide">
+                <span>Тема обращения</span>
+                <input
+                  type="text"
+                  value={appealForm.category}
+                  onChange={handleAppealFormChange("category")}
+                  className="appeal-chat-input"
+                  placeholder="Например: Переработки, отпуск, доступ к системе"
+                />
+              </label>
+
+              <label className="appeal-form-field appeal-form-field-wide">
+                <span>Текст обращения</span>
+                <textarea
+                  value={appealForm.content}
+                  onChange={handleAppealFormChange("content")}
+                  className="appeal-chat-input appeal-chat-input-multiline"
+                  placeholder="Опишите ситуацию подробно"
+                />
+              </label>
+            </div>
+
+            <div className="appeal-form-options">
+              <label className="appeal-option">
+                <input type="checkbox" checked={appealForm.isAnonymous} onChange={handleAppealFormChange("isAnonymous")} />
+                <span>Анонимное обращение</span>
+              </label>
+              <label className="appeal-option">
+                <input type="checkbox" checked={appealForm.isConfidential} onChange={handleAppealFormChange("isConfidential")} />
+                <span>Конфиденциальное обращение</span>
+              </label>
+            </div>
+
+            {createError ? <div className="workspace-empty">{createError}</div> : null}
+
+            <div className="appeal-form-actions">
+              <button type="button" className="appeal-secondary-action" onClick={() => setIsCreateAppealModalOpen(false)}>
+                Отмена
+              </button>
+              <button type="button" onClick={handleCreateAppeal} className="appeal-primary-action" disabled={isCreatingAppeal || recipients.length === 0}>
+                {isCreatingAppeal ? "Сохранение..." : "Отправить обращение"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };
