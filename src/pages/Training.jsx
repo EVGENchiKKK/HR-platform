@@ -3,6 +3,7 @@ import { useOutletContext } from "react-router-dom";
 import { AutoStories, CheckCircleOutline, Groups, PlayCircleOutline, School } from "@mui/icons-material";
 import workspaceService from "../api/workspaceService";
 import getRoleLabel from "../utils/roleLabels";
+import { formatCategoryLabel, formatCourseStatusLabel } from "../utils/uiLabels";
 import "./../style/workspace-pages.css";
 
 const formatDate = (value) => {
@@ -136,10 +137,7 @@ export const Training = () => {
         <div>
           <span className="workspace-eyebrow">Развитие команды</span>
           <h2 className="workspace-title">Обучение и курсы</h2>
-          <p className="workspace-description">
-            Прогресс теперь идет по модулям: после завершения текущего модуля открывается следующий, а после последнего курс
-            автоматически считается завершенным.
-          </p>
+          {/* <p className="workspace-description"></p> */}
         </div>
         <div className="workspace-metrics">
           <div className="workspace-metric">
@@ -173,11 +171,11 @@ export const Training = () => {
                 <div className="appeal-list-item-top">
                   <span className="appeal-list-subject">{course.title}</span>
                   <span className={`workspace-pill workspace-pill-${course.myEnrollment?.isCompleted ? "completed" : course.status}`}>
-                    {course.myEnrollment?.isCompleted ? "Завершен" : course.status === "draft" ? "Черновик" : "Активен"}
+                    {course.myEnrollment?.isCompleted ? "Завершен" : formatCourseStatusLabel(course.status)}
                   </span>
                 </div>
                 <div className="workspace-card-top">
-                  <span className="workspace-pill workspace-pill-neutral">{course.category}</span>
+                  <span className="workspace-pill workspace-pill-neutral">{formatCategoryLabel(course.category)}</span>
                   {course.myEnrollment ? (
                     <span className="workspace-pill workspace-pill-active">{course.myEnrollment.progressPercent}%</span>
                   ) : null}
@@ -199,9 +197,9 @@ export const Training = () => {
                   <h3 className="appeal-detail-title">{selectedCourse.title}</h3>
                   <div className="workspace-card-top">
                     <span className={`workspace-pill workspace-pill-${selectedCourse.status}`}>
-                      {selectedCourse.status === "draft" ? "Черновик" : "Активен"}
+                      {formatCourseStatusLabel(selectedCourse.status)}
                     </span>
-                    <span className="workspace-pill workspace-pill-neutral">{selectedCourse.category}</span>
+                    <span className="workspace-pill workspace-pill-neutral">{formatCategoryLabel(selectedCourse.category)}</span>
                     {selectedCourse.myEnrollment ? (
                       <span className="workspace-pill workspace-pill-active">
                         Прогресс: {selectedCourse.myEnrollment.progressPercent}%
@@ -249,9 +247,8 @@ export const Training = () => {
                   return (
                     <article
                       key={module.id}
-                      className={`course-lesson-card ${
-                        isCompleted ? "course-lesson-card-completed" : isCurrent ? "course-lesson-card-current" : ""
-                      }`}
+                      className={`course-lesson-card ${isCompleted ? "course-lesson-card-completed" : isCurrent ? "course-lesson-card-current" : ""
+                        }`}
                     >
                       <div className="course-lesson-header">
                         <span className="workspace-pill workspace-pill-neutral">Модуль {moduleIndex + 1}</span>
@@ -266,7 +263,7 @@ export const Training = () => {
                             <div>
                               <strong>{lesson.title || `Материал ${lessonIndex + 1}`}</strong>
                               <p>
-                                {lesson.type || "материал"}
+                                {lesson.type ? formatCategoryLabel(lesson.type) : "материал"}
                                 {lesson.duration ? ` · ${Math.max(1, Math.round(Number(lesson.duration) / 60))} мин` : ""}
                               </p>
                             </div>

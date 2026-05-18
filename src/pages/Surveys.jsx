@@ -3,18 +3,9 @@ import { useOutletContext } from "react-router-dom";
 import { AssignmentTurnedIn, Groups, Poll, Quiz, TaskAlt } from "@mui/icons-material";
 import workspaceService from "../api/workspaceService";
 import getRoleLabel from "../utils/roleLabels";
+import { formatSurveyStatusLabel, formatSurveyTypeLabel } from "../utils/uiLabels";
+import { formatDateTime } from "../utils/dateFormat";
 import "./../style/workspace-pages.css";
-
-const typeLabels = {
-  survey: "Опрос",
-  test: "Тест",
-};
-
-const statusLabels = {
-  active: "Активен",
-  completed: "Завершен",
-  draft: "Черновик",
-};
 
 const buildInitialAnswers = (survey) => {
   const answerMap = {};
@@ -159,11 +150,11 @@ export const Surveys = () => {
       questions: current.questions.map((question, currentIndex) => (
         currentIndex === questionIndex
           ? {
-              ...question,
-              options: question.options.map((option, currentOptionIndex) => (
-                currentOptionIndex === optionIndex ? value : option
-              ))
-            }
+            ...question,
+            options: question.options.map((option, currentOptionIndex) => (
+              currentOptionIndex === optionIndex ? value : option
+            ))
+          }
           : question
       ))
     }));
@@ -301,10 +292,10 @@ export const Surveys = () => {
         <div>
           <span className="workspace-eyebrow">Обратная связь</span>
           <h2 className="workspace-title">Опросы и тестирование</h2>
-          <p className="workspace-description">
+          {/* <p className="workspace-description">
             Процент прохождения теперь считается по реально открытым пользователю опросам, а HR и администратор видят корректную
             сводку по сотрудникам.
-          </p>
+          </p> */}
         </div>
         <div className="workspace-metrics">
           <div className="workspace-metric">
@@ -348,18 +339,18 @@ export const Surveys = () => {
                 <div className="appeal-list-item-top">
                   <span className="appeal-list-subject">{item.title}</span>
                   <span className={`workspace-pill workspace-pill-${item.myResult?.isCompleted ? "completed" : item.status}`}>
-                    {item.myResult?.isCompleted ? "Пройден" : statusLabels[item.status] || item.status}
+                    {item.myResult?.isCompleted ? "Пройден" : formatSurveyStatusLabel(item.status)}
                   </span>
                 </div>
                 <div className="workspace-card-top">
-                  <span className="workspace-pill workspace-pill-neutral">{typeLabels[item.type] || item.type}</span>
+                  <span className="workspace-pill workspace-pill-neutral">{formatSurveyTypeLabel(item.type)}</span>
                   {item.myResult?.isCompleted ? (
                     <span className="workspace-pill workspace-pill-active">Ваш результат: {item.myResult.score}%</span>
                   ) : null}
                 </div>
                 <div className="appeal-list-meta">
                   <span>{canViewPeopleInsights ? `${item.submissions?.length || 0} результатов` : item.department || "Общий доступ"}</span>
-                  <span>{item.deadline || "Без срока"}</span>
+                  <span>{formatDateTime(item.deadline, "Без срока")}</span>
                 </div>
               </button>
             ))}
@@ -373,8 +364,8 @@ export const Surveys = () => {
                 <div>
                   <h3 className="appeal-detail-title">{selectedSurvey.title}</h3>
                   <div className="workspace-card-top">
-                    <span className={`workspace-pill workspace-pill-${selectedSurvey.status}`}>{statusLabels[selectedSurvey.status] || selectedSurvey.status}</span>
-                    <span className="workspace-pill workspace-pill-neutral">{typeLabels[selectedSurvey.type] || selectedSurvey.type}</span>
+                    <span className={`workspace-pill workspace-pill-${selectedSurvey.status}`}>{formatSurveyStatusLabel(selectedSurvey.status)}</span>
+                    <span className="workspace-pill workspace-pill-neutral">{formatSurveyTypeLabel(selectedSurvey.type)}</span>
                     {selectedSurvey.myResult?.isCompleted ? (
                       <span className="workspace-pill workspace-pill-active">Ваш результат: {selectedSurvey.myResult.score}%</span>
                     ) : null}
@@ -397,7 +388,7 @@ export const Surveys = () => {
                 </div>
                 <div className="workspace-meta-item">
                   <AssignmentTurnedIn sx={{ fontSize: 16 }} />
-                  <span>Дедлайн: {selectedSurvey.deadline || "Не указан"}</span>
+                  <span>Дедлайн: {formatDateTime(selectedSurvey.deadline, "Не указан")}</span>
                 </div>
               </div>
 
@@ -490,7 +481,7 @@ export const Surveys = () => {
                             <p>{submission.department || "Без отдела"} · {getRoleLabel(submission.role)}</p>
                             <div className="employee-inline-meta">
                               <span>{submission.isCompleted ? "Пройден" : "Не завершён"}</span>
-                              <span>{submission.submittedAt || submission.startedAt || "Без даты"}</span>
+                              <span>{formatDateTime(submission.submittedAt || submission.startedAt, "Без даты")}</span>
                             </div>
                           </div>
                         ))}

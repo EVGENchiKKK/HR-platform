@@ -301,9 +301,20 @@
   color: #6366f1;
 }
 
+.action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .delete-btn:hover {
   background: #fef2f2;
   color: #ef4444;
+}
+
+.employee-action-placeholder {
+  color: #cbd5e1;
+  font-size: 16px;
+  line-height: 1;
 }
 
 /* ===== Empty State ===== */
@@ -325,6 +336,13 @@
   border: 1px solid #e5edf7;
   background: white;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.employee-detail-panel-modal {
+  margin-top: 0;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
 }
 
 .employee-detail-hero {
@@ -512,6 +530,42 @@
 
 .modal-body {
   padding: 24px;
+}
+
+.employee-modal-card {
+  max-width: 1120px;
+  max-height: min(92vh, 920px);
+  overflow-y: auto;
+}
+
+.employee-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.employee-delete-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: #fef2f2;
+  color: #dc2626;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.employee-delete-button:hover {
+  background: #fee2e2;
+}
+
+.employee-delete-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 .form-group {

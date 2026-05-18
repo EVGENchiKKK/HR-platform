@@ -54,8 +54,18 @@ export const createDepartment = async (payload) => {
   return response.data;
 };
 
+export const deleteDepartment = async (departmentId) => {
+  const response = await axiosInstance.delete(`/workspace/departments/${departmentId}`);
+  return response.data;
+};
+
 export const createEmployee = async (payload) => {
   const response = await axiosInstance.post('/workspace/employees', payload);
+  return response.data;
+};
+
+export const deleteEmployee = async (employeeId) => {
+  const response = await axiosInstance.delete(`/workspace/employees/${employeeId}`);
   return response.data;
 };
 
@@ -104,7 +114,9 @@ export default {
   createForumPost,
   createTask,
   createDepartment,
+  deleteDepartment,
   createEmployee,
+  deleteEmployee,
   createTest,
   completeTask,
   updateTaskStatus,

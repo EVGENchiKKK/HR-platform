@@ -191,6 +191,16 @@
   border-bottom: 1px solid #f3f4f6;
 }
 
+.dept-detail-header-actions {
+  justify-content: space-between;
+}
+
+.dept-detail-header-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .dept-detail-icon {
   width: 40px;
   height: 40px;
@@ -246,6 +256,30 @@
 .detail-kpi {
   font-size: 12px;
   font-weight: 600;
+}
+
+.department-delete-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: #fef2f2;
+  color: #dc2626;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.department-delete-button:hover {
+  background: #fee2e2;
+}
+
+.department-delete-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 /* ===== Employees List ===== */
@@ -586,6 +620,15 @@
     flex-direction: column;
     gap: 12px;
     align-items: flex-start;
+  }
+
+  .dept-detail-header-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dept-detail-header-main {
+    width: 100%;
   }
   
   .dept-cards-grid {

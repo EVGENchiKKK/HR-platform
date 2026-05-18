@@ -11,6 +11,8 @@ import {
   TrendingUp,
 } from '@mui/icons-material';
 import getRoleLabel from "../utils/roleLabels";
+import { formatCategoryLabel, formatPriorityLabel, formatTaskStatusLabel } from "../utils/uiLabels";
+import { formatDateTime } from "../utils/dateFormat";
 import './../style/workspace-pages.css';
 import './../style/profile.css';
 
@@ -143,7 +145,7 @@ export const Profile = () => {
           <span className="workspace-eyebrow">Личный кабинет</span>
           <h1 className="workspace-title">{userName}</h1>
           <p className="profile-role">{userRole}</p>
-          <p className="workspace-description">{profile.summary}</p>
+          {/* <p className="workspace-description">{profile.summary}</p> */}
 
           <div className="profile-identity-grid">
             <div className="profile-identity-card">
@@ -231,12 +233,12 @@ export const Profile = () => {
               <div key={task.id} className="profile-list-card">
                 <div className="profile-list-top">
                   <h3>{task.title}</h3>
-                  <span className={`workspace-pill workspace-pill-${task.priority}`}>{task.priority}</span>
+                  <span className={`workspace-pill workspace-pill-${task.priority}`}>{formatPriorityLabel(task.priority)}</span>
                 </div>
                 <p>{task.department}</p>
                 <div className="profile-inline-meta">
-                  <span>Статус: {task.status}</span>
-                  <span>Срок: {task.deadline}</span>
+                  <span>Статус: {formatTaskStatusLabel(task.status)}</span>
+                  <span>Срок: {formatDateTime(task.deadline, "Без срока")}</span>
                 </div>
               </div>
             ))}
@@ -292,10 +294,10 @@ export const Profile = () => {
                   <h3>{post.title}</h3>
                   <span className="workspace-pill workspace-pill-neutral">{post.replies} ответов</span>
                 </div>
-                <p>{post.category}</p>
+                <p>{formatCategoryLabel(post.category)}</p>
                 <div className="profile-inline-meta">
                   <span>{post.author}</span>
-                  <span>{post.date}</span>
+                  <span>{formatDateTime(post.date, "Без даты")}</span>
                 </div>
               </div>
             ))}

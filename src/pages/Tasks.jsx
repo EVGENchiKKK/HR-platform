@@ -2,20 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { CalendarToday, Flag, TaskAlt, WarningAmber } from "@mui/icons-material";
 import workspaceService from "../api/workspaceService";
+import { formatPriorityLabel, formatTaskStatusLabel, PRIORITY_LABELS } from "../utils/uiLabels";
+import { formatDateTime, formatShortDate } from "../utils/dateFormat";
 import "./../style/workspace-pages.css";
-
-const statusLabels = {
-  pending: "Ожидает",
-  in_progress: "В работе",
-  completed: "Завершена",
-  cancelled: "Отменена",
-};
-
-const priorityLabels = {
-  low: "Низкий",
-  medium: "Средний",
-  high: "Высокий",
-};
 
 const initialTaskForm = {
   title: "",
@@ -66,7 +55,10 @@ export const Tasks = () => {
   });
 
   const completedTasks = tasks.filter((task) => task.status === "completed").length;
-  const overdueTasks = tasks.filter((task) => task.deadline < new Date().toISOString().slice(0, 10) && task.status !== "completed").length;
+  const overdueTasks = tasks.filter((task) => {
+    const deadline = new Date(task.deadline);
+    return !Number.isNaN(deadline.getTime()) && deadline < new Date() && task.status !== "completed";
+  }).length;
 
   useEffect(() => {
     setTaskStatusDrafts(
@@ -164,10 +156,10 @@ export const Tasks = () => {
         <div>
           <span className="workspace-eyebrow">Исполнение KPI</span>
           <h2 className="workspace-title">Задачи и контроль сроков</h2>
-          <p className="workspace-description">
+          {/* <p className="workspace-description">
             HR видит все задачи и может назначать их конкретным сотрудникам. Сотрудник видит только свои задачи и
             может сам менять статус выполнения.
-          </p>
+          </p> */}
         </div>
         <div className="workspace-metrics">
           <div className="workspace-metric">
@@ -219,8 +211,8 @@ export const Tasks = () => {
             return (
               <article key={task.id} className="workspace-card">
                 <div className="workspace-card-top">
-                  <span className={`workspace-pill workspace-pill-${task.status}`}>{statusLabels[task.status]}</span>
-                  <span className={`workspace-pill workspace-pill-${task.priority}`}>{priorityLabels[task.priority]}</span>
+                  <span className={`workspace-pill workspace-pill-${task.status}`}>{formatTaskStatusLabel(task.status)}</span>
+                  <span className={`workspace-pill workspace-pill-${task.priority}`}>{formatPriorityLabel(task.priority)}</span>
                 </div>
                 <h3 className="workspace-card-title">{task.title}</h3>
                 <p className="workspace-card-copy">{task.description}</p>
@@ -228,7 +220,7 @@ export const Tasks = () => {
                 <div className="workspace-meta-list">
                   <div className="workspace-meta-item">
                     <CalendarToday sx={{ fontSize: 16 }} />
-                    <span>Срок: {task.deadline}</span>
+                    <span>Срок: {formatDateTime(task.deadline, formatShortDate(task.deadline, "Без срока"))}</span>
                   </div>
                   <div className="workspace-meta-item">
                     <TaskAlt sx={{ fontSize: 16 }} />
@@ -236,7 +228,7 @@ export const Tasks = () => {
                   </div>
                   <div className="workspace-meta-item">
                     <Flag sx={{ fontSize: 16 }} />
-                    <span>Приоритет: {priorityLabels[task.priority]}</span>
+                    <span>Приоритет: {formatPriorityLabel(task.priority)}</span>
                   </div>
                 </div>
 
@@ -306,9 +298,9 @@ export const Tasks = () => {
               <label className="appeal-form-field">
                 <span>Приоритет</span>
                 <select value={taskForm.priority} onChange={handleTaskFormChange("priority")} className="workspace-select">
-                  <option value="low">Низкий</option>
-                  <option value="medium">Средний</option>
-                  <option value="high">Высокий</option>
+                  <option value="low">{PRIORITY_LABELS.low}</option>
+                  <option value="medium">{PRIORITY_LABELS.medium}</option>
+                  <option value="high">{PRIORITY_LABELS.high}</option>
                 </select>
               </label>
 

@@ -4,6 +4,7 @@ import { RemoveRedEye, Send, SmsOutlined } from "@mui/icons-material";
 import { getSocket } from "../api/socket";
 import workspaceService from "../api/workspaceService";
 import getRoleLabel from "../utils/roleLabels";
+import { formatCategoryLabel } from "../utils/uiLabels";
 import "./../style/workspace-pages.css";
 
 const initialTopicForm = {
@@ -131,7 +132,7 @@ export const Forum = () => {
 
     const handleTopicCreated = ({ topic }) => {
       if (!topic) {
-        loadForumData().catch(() => {});
+        loadForumData().catch(() => { });
         return;
       }
 
@@ -301,10 +302,9 @@ export const Forum = () => {
         <div>
           <span className="workspace-eyebrow">Внутреннее сообщество</span>
           <h2 className="workspace-title">Общий форум компании</h2>
-          <p className="workspace-description">
-            Все сотрудники видят общие темы и могут переписываться внутри них. Новые темы и ответы сохраняются
-            в базе данных через таблицы `forum_them` и `forum_posts`.
-          </p>
+          {/* <p className="workspace-description">
+            Все сотрудники видят общие темы и могут переписываться внутри них.
+          </p> */}
         </div>
         <div className="workspace-metrics">
           <div className="workspace-metric">
@@ -347,7 +347,7 @@ export const Forum = () => {
                 <div className="appeal-list-item-top">
                   <span className="appeal-list-subject">{post.title}</span>
                   <span className={`workspace-pill ${post.pinned ? "workspace-pill-active" : "workspace-pill-neutral"}`}>
-                    {post.pinned ? "Закреплено" : post.category}
+                    {post.pinned ? "Закреплено" : formatCategoryLabel(post.category)}
                   </span>
                 </div>
                 <div className="appeal-list-meta">
@@ -377,7 +377,7 @@ export const Forum = () => {
                   <h3 className="appeal-detail-title">{selectedTopic.title}</h3>
                   <div className="workspace-card-top">
                     <span className={`workspace-pill ${selectedTopic.pinned ? "workspace-pill-active" : "workspace-pill-neutral"}`}>
-                      {selectedTopic.pinned ? "Закреплено" : selectedTopic.category}
+                      {selectedTopic.pinned ? "Закреплено" : formatCategoryLabel(selectedTopic.category)}
                     </span>
                     {selectedTopic.isLocked ? <span className="workspace-pill workspace-pill-closed">Тема закрыта</span> : null}
                   </div>
@@ -478,7 +478,7 @@ export const Forum = () => {
                 <span>Категория</span>
                 <select value={topicForm.category} onChange={handleTopicFormChange("category")} className="workspace-select">
                   <option value="Обсуждение">Обсуждение</option>
-                  <option value="IT-поддержка">IT-поддержка</option>
+                  <option value="IT-поддержка">ИТ-поддержка</option>
                   <option value="Организационные вопросы">Организационные вопросы</option>
                   <option value="Корпоративная жизнь">Корпоративная жизнь</option>
                   <option value="Объявления">Объявления</option>

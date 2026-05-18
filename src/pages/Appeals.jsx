@@ -4,28 +4,16 @@ import { Campaign, ErrorOutline, MarkEmailRead, Schedule, Send } from "@mui/icon
 import { getSocket } from "../api/socket";
 import workspaceService from "../api/workspaceService";
 import getRoleLabel from "../utils/roleLabels";
+import {
+  APPEAL_TYPE_LABELS,
+  PRIORITY_LABELS,
+  formatAppealStatusLabel,
+  formatAppealTypeLabel,
+  formatPriorityLabel,
+} from "../utils/uiLabels";
 import "./../style/workspace-pages.css";
 
-const statusLabels = {
-  open: "Открыто",
-  in_review: "На рассмотрении",
-  resolved: "Решено",
-  closed: "Закрыто",
-};
-
-const priorityLabels = {
-  high: "Высокий",
-  medium: "Средний",
-  low: "Низкий",
-};
-
-const typeLabels = {
-  complaint: "Жалоба",
-  suggestion: "Предложение",
-  question: "Вопрос",
-};
-
-const formatAppealType = (type) => typeLabels[`${type || ""}`.trim().toLowerCase()] || type || "Обращение";
+const formatAppealType = (type) => formatAppealTypeLabel(type);
 
 const formatAppealSubject = (appeal) => {
   if (!appeal) {
@@ -202,7 +190,7 @@ export const Appeals = () => {
     }
 
     const handleAppealCreated = () => {
-      loadAppealsData().catch(() => {});
+      loadAppealsData().catch(() => { });
     };
 
     const handleAppealUpdated = ({ appealId, status }) => {
@@ -210,7 +198,7 @@ export const Appeals = () => {
         ...appeal,
         status: status || appeal.status,
       }));
-      loadAppealsData().catch(() => {});
+      loadAppealsData().catch(() => { });
     };
 
     const handleAppealMessage = ({ appealId, status, message }) => {
@@ -227,7 +215,7 @@ export const Appeals = () => {
           lastMessageAt: message?.createdAt || appeal.lastMessageAt,
         };
       });
-      loadAppealsData().catch(() => {});
+      loadAppealsData().catch(() => { });
     };
 
     socket.on("appeal:created", handleAppealCreated);
@@ -421,10 +409,10 @@ export const Appeals = () => {
         <div>
           <span className="workspace-eyebrow">Служба поддержки</span>
           <h2 className="workspace-title">Обращения сотрудников</h2>
-          <p className="workspace-description">
+          {/* <p className="workspace-description">
             Создавайте обращения сразу с получателем, приоритетом, темой и полным текстом. Внутри каждого обращения
             сохраняется переписка в формате чата.
-          </p>
+          </p> */}
         </div>
         <div className="workspace-metrics">
           <div className="workspace-metric">
@@ -485,10 +473,10 @@ export const Appeals = () => {
               >
                 <div className="appeal-list-item-top">
                   <span className="appeal-list-subject">{formatAppealSubject(item)}</span>
-                  <span className={`workspace-pill workspace-pill-${item.priority}`}>{priorityLabels[item.priority]}</span>
+                  <span className={`workspace-pill workspace-pill-${item.priority}`}>{formatPriorityLabel(item.priority)}</span>
                 </div>
                 <div className="workspace-card-top">
-                  <span className={`workspace-pill workspace-pill-${item.status}`}>{statusLabels[item.status]}</span>
+                  <span className={`workspace-pill workspace-pill-${item.status}`}>{formatAppealStatusLabel(item.status)}</span>
                   <span className="workspace-pill workspace-pill-neutral">{formatAppealType(item.type)}</span>
                 </div>
                 <div className="appeal-list-meta">
@@ -507,8 +495,8 @@ export const Appeals = () => {
                 <div>
                   <h3 className="appeal-detail-title">{formatAppealSubject(selectedAppeal)}</h3>
                   <div className="workspace-card-top">
-                    <span className={`workspace-pill workspace-pill-${selectedAppeal.status}`}>{statusLabels[selectedAppeal.status]}</span>
-                    <span className={`workspace-pill workspace-pill-${selectedAppeal.priority}`}>{priorityLabels[selectedAppeal.priority]}</span>
+                    <span className={`workspace-pill workspace-pill-${selectedAppeal.status}`}>{formatAppealStatusLabel(selectedAppeal.status)}</span>
+                    <span className={`workspace-pill workspace-pill-${selectedAppeal.priority}`}>{formatPriorityLabel(selectedAppeal.priority)}</span>
                     <span className="workspace-pill workspace-pill-neutral">{formatAppealType(selectedAppeal.type)}</span>
                   </div>
                   <p className="appeal-detail-meta">
@@ -656,18 +644,18 @@ export const Appeals = () => {
               <label className="appeal-form-field">
                 <span>Тип обращения</span>
                 <select value={appealForm.type} onChange={handleAppealFormChange("type")} className="workspace-select">
-                  <option value="question">Вопрос</option>
-                  <option value="suggestion">Предложение</option>
-                  <option value="complaint">Жалоба</option>
+                  <option value="question">{APPEAL_TYPE_LABELS.question}</option>
+                  <option value="suggestion">{APPEAL_TYPE_LABELS.suggestion}</option>
+                  <option value="complaint">{APPEAL_TYPE_LABELS.complaint}</option>
                 </select>
               </label>
 
               <label className="appeal-form-field">
                 <span>Приоритет</span>
                 <select value={appealForm.priority} onChange={handleAppealFormChange("priority")} className="workspace-select">
-                  <option value="low">Низкий</option>
-                  <option value="medium">Средний</option>
-                  <option value="high">Высокий</option>
+                  <option value="low">{PRIORITY_LABELS.low}</option>
+                  <option value="medium">{PRIORITY_LABELS.medium}</option>
+                  <option value="high">{PRIORITY_LABELS.high}</option>
                 </select>
               </label>
 
